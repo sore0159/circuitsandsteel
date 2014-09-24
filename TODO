@@ -1,0 +1,16 @@
+Finish testing 2v2: Write up some test docs
+Impliment Dragon
+	Ignore Dragon Powers for now
+Impliment AI
+	Gamestate-Snapshot feature
+	Simple AI for now, "Little Bobby Tables"
+Integrate game on web
+	web.py? flask? Something else?
+	probably need mysql or at least shelve integration for this
+Impliment Powers
+	hooooo boy will this be a job
+	Might necessitate (no spellchecker on vim!  look into that) total data structure rewrite
+Total Data Structure Rewrite
+	probably should do this anyway sometime, it's a mess in there
+	for now, it works, don't break it
+

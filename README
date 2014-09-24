@@ -1,2 +1,7 @@
 Python implimentation of Flash Duel
 Split across several files for readability/editability, not for any functional reason.
+
+1v1 working pretty well, 2v2 mostly through implimentation
+TODO: AI implimentaiton, web page integration
+TODO: Dragon implimentation, Powers implimentation (maybe)
+TODO: Simplify base data structures, no need for all those objects and lists.  Maybe not worth messing with what works for now though.
