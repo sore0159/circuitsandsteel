@@ -1,2 +1,4 @@
-When a card is used for aid it still may be counted as available for own defense (related to option tray creation timing)
+None outstanding.  Do more bugtesting
+---------------------------------------------------------------------------
+FIXED When a card is used for aid it still may be counted as available for own defense (related to option tray creation timing)
 FIXED 2 stacked attacking from left can call for aid, from right cannot

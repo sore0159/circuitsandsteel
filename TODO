@@ -1,7 +1,8 @@
-Finish testing 2v2: Write up some test docs
 Impliment AI
-	Gamestate-Snapshot feature
 	Simple AI for now, "Little Bobby Tables"
+	More robust Gamestate-Snapshot feature (shelve, pickle?)
+Bugtesting
+	AI should help with bugtesting
 Integrate game on web
 	web.py? flask? Something else?
 	probably need mysql or at least shelve integration for this
