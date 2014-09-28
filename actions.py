@@ -120,13 +120,16 @@ class Suffering(Linker):
         self.victim_cards = victim_cards
 
     def pretty_name(self):
-        return 'impending crisis'
+        return self.suf_type + ' on '+self.check('player')[0].pretty_name()
 
+    def source_player(self):
+        if self.suf_type == 'cry':
+            return self.check('suffering')[0].check('player')[0]
+        else:
+            return 0
 
     def destroy(self):
-        print self.check('tray')
         for tray in self.check('tray'):
-            print "Tray ID", tray.id_num, 'destroyed!'
             tray.tray_destroy()
 
         # could miss someone who knows me without my knowledge
@@ -149,7 +152,6 @@ class Suffering(Linker):
                     for tray in self.check('tray'):
                         pass    
                     if self.amount < 1:
-                        print "suffering destroyed!"
                         self.destroy()
             elif y == 'cry':
                 self.can_call_for_aid = 0
@@ -359,18 +361,21 @@ class DashingBlock(Option):
         Option.__init__(self, owner)
         self.distance = blk_cards[0].value
         self.strength = len(blk_cards)
-        self.movement = move_card.value
-        if direction == 'down': self.movement *= -1
+        self.cards = blk_cards
+        if move_card:
+            self.cards.append( move_card)
+            self.movement = move_card.value
+            if direction == 'down': self.movement *= -1
+        else:
+            self.movement = 0
         self.sub_type = 'relief'
         self.cry = cry
         self.victim_cards = cry.victim_cards
         self.attack_suf = attack_suf
         self.mover = mover
-        self.cards = blk_cards
-        self.cards.append( move_card)
         self.cards += self.victim_cards
-        self.des = 'Dashing Block, moving %s %d then adding %d cards valued %d to the block' % (direction, move_card.value, self.strength, self.distance)
-        self.id_string = 's'+str(move_card.value)+str(self.distance)*self.strength
+        self.des = 'Dashing Block, moving %s %d then adding %d cards valued %d to the block' % (direction, abs(self.movement), self.strength, self.distance)
+        self.id_string = 's'+str(abs(self.movement))+str(self.distance)*self.strength
         owner.choice_ids.append(self.id_string)
 
 
@@ -380,7 +385,7 @@ class DashingBlock(Option):
     def activate(self):
         for i in self.attack_suf.check('cry'):
             i.interact(self)
-        self.interact(self.mover)
+        if self.movement: self.interact(self.mover)
         final_loc = self.mover.check('at')[0].pretty_name()
         self.interact(self.attack_suf, self.strength+len(self.victim_cards))
         for i in self.cards:

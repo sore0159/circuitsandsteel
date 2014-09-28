@@ -62,6 +62,13 @@ class Token(Linker):
             if x[0] < target[0]: target = x
         return target
 
+    def home_dir(self):
+        en_dir = self.closest_enemy()[1]
+        if en_dir == 'up':
+            return 'down'
+        else:
+            return 'up'
+
     def interact(self, other, kind=0):
         x = other.type_string
         if x == 'faction':
@@ -109,6 +116,9 @@ class GameSpace(Location):
             return self.check(direction)[0].count(amount-1, direction)
         else:
             return False
+
+    def val(self):
+        return int(self.des)
 
     def safe_count(self, amount, direction, faction):
         rivals = set (faction.check('rival')[0].check())

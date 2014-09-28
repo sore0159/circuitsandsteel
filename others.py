@@ -6,15 +6,21 @@ from linker import Linker, Location
 
 
 class Player(Location):
-    def __init__(self, name=''):
+    def __init__(self, game_id, id_num=0, name=''):
         Location.__init__(self, name)
         self.type_string = 'player'
         self.in_team_pref = 'mid'
         self.status = 1
         self.winded = 0
         self.fac_order_pref = 'first'
+        self.id_num = id_num
+        self.game_id = game_id
+
+    def is_dragon(self):
+        return self.check('owns')[0].dragon
 
     def fac_order(self):
+        #option first, last, don't care
         if self.fac_order_pref == 'first':
             return -1
         elif self.fac_order_pref == 'last':
@@ -23,6 +29,7 @@ class Player(Location):
             return 0
 
     def in_team_order(self):
+        #options: first, last, mid
         if self.in_team_pref == 'first':
             return 0
         elif self.in_team_pref == 'last':
@@ -46,6 +53,24 @@ class Player(Location):
         for i in self.check('has')[0].check()[:]:
             i.discard()
 
+    def cards(self):
+        return self.check('has')[0].check()
+
+    def token_spot(self):
+        try:
+            return self.check('owns')[0].check('at')[0]
+        except:
+            return None
+
+    def token_spot_val(self):
+        try:
+            return self.check('owns')[0].check('at')[0].val()
+        except:
+            return None
+
+    def score(self):
+        return self.check()[0].points
+
     def interact(self, other, kind=0):
         x = other.type_string
         if x == 'hand':
@@ -67,7 +92,7 @@ class Faction(Location):
         self.points = 0
 
     def pretty_name(self):
-        return 'The '+self.des
+        return self.des
 
     def score(self, mod =0):
         self.points += mod

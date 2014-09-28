@@ -66,7 +66,7 @@ def map(game):
     fac2_tokens = []
     rival_tokens = game.next_tray.check('owner')[0].check()[0].check('rival')[0].check()
     for i in game.gameboard['token']:
-        if i.check()[0] == game.gameboard['faction'][0]:
+        if i.status >0 and i.check()[0] == game.gameboard['faction'][0]:
             fac1_tokens.append(i)
         else:
             fac2_tokens.append(i)
@@ -139,35 +139,56 @@ def map(game):
     map_string = top3+'\n'+top2+'\n'+top1+'\n'+line1 +'\n'+line2+'\n'+under
     return map_string
         
+def abrev(name):
+    name_dict = {'Player One':'P1', 'Player Two':'P2', 'Player Three':'P3', 'Player Four':'P4'} 
+    if name in name_dict:
+        return name_dict[name]
+    else:
+        return name[:2].upper()
+    
 def ascii_print(game):
     print '='*54
     fac1 = game.gameboard['faction'][0].pretty_name()
     fac2 = game.gameboard['faction'][1].pretty_name()
+    fac1_players = []
+    fac2_players = []
+    for player in game.gameboard['faction'][0].check():
+        if player.type_string == 'player':
+            fac1_players.append(player)
+    for player in game.gameboard['faction'][1].check():
+        if player.type_string == 'player':
+            fac2_players.append(player)
     if len(fac1) > 16: fac1 = fac1[:16]
     if len(fac2) > 16: fac2 = fac2[:16]
     fac_str = fac1 + ' '*(54-len(fac1+fac2))+fac2
     print fac_str
     print '%d'% game.gameboard['faction'][0].points + ' '*21 + '==VERSUS=='+ ' '*21+'%d'% game.gameboard['faction'][1].points
     print '\n'+map(game)
-    hand1 ='P1:'
-    for card in game.gameboard['player'][0].check('has')[0].check():
+          ################# CARD AREA #################
+    hand1 =abrev(fac1_players[0].pretty_name())+':'
+    for card in fac1_players[0].cards():
         hand1 += str(card.value)+ ' '
     hand2 =''
-    for card in game.gameboard['player'][2].check('has')[0].check():
+    for card in fac2_players[0].cards():
         hand2 += ' '+ str(card.value)
-    hand2 += ':P3'
-    if game.game_type == 1:
-        hand3 ='P2:'
-        for card in game.gameboard['player'][1].check('has')[0].check():
-            hand3 += str(card.value)+ ' '
-        hand4 =''
-        for card in game.gameboard['player'][3].check('has')[0].check():
-            hand4 += ' '+ str(card.value)
-        hand4 += ':P4'
+    hand2 += ':'+abrev(fac2_players[0].pretty_name())
+
+
+    if len(fac1_players) > 1:
+        hand3 = abrev(fac1_players[1].pretty_name())+":"
+        for card in fac1_players[1].cards():
+            hand3 += str(card.value) + ' '
+    else:
+        hand3 = ''
+    hand4 = ''
+    if len(fac2_players) > 1:
+        for card in fac2_players[1].cards():
+            hand4 += ' '+str(card.value)
+        hand4 += ':'+abrev(fac2_players[1].pretty_name())
         
     print '-'*54
     print hand1+' '*(54-len(hand1+hand2))+hand2
-    if game.game_type == 1:
+    if hand3 or hand4:
         print hand3+' '*(54-len(hand3+hand4))+hand4
     cards_left = len(game.deck().check())
     print "Cards left: %d" % cards_left
@@ -196,22 +217,36 @@ def query_option(game):
                 pass
         return choice
 
+
+def file_snap(snapshot):
+    snap_file = file('snap_file', 'a')
+    snap_file.write(str(snapshot))
+    snap_file.write('\n\n')
+    snap_file.close()
+
+def file_recov():
+    try:
+        snap_file = file('snap_file')
+        final = ''
+        for line in snap_file.readlines():
+            if line.lstrip():
+                final = line
+        if final: snapshot = eval(final)
+        else: snapshot = 0
+    except: snapshot = 0
+    return snapshot
+    
 game = game.Game()
-game.game_type = 1
-game.spawn(1)
-
-#for i in range(10):
-#    game.deck().top_card().discard()
-game.gameboard['token'][0].interact(game.gameboard['gamespace'][8])
-game.gameboard['token'][1].interact(game.gameboard['gamespace'][8])
-game.gameboard['token'][2].interact(game.gameboard['gamespace'][9])
-game.gameboard['token'][3].interact(game.gameboard['gamespace'][9])
-for i in range(12):
-    card = game.gameboard['card'][i]
-    hand = game.gameboard['hand'][i/3]
-    print card.pretty_name(), hand.check('at')[0].pretty_name()
-    card.interact(hand)
-
+#game.game_type = 1
+#game.spawn(1)
+game_type = 1
+snapshot = game.random_gamestart_snapshot(game_type)
+#game.spawn_from_snapshot(snapshot)
+snap2 = file_recov()
+if not snap2:
+    snap2 = game.random_gamestart_snapshot(game_type)
+game.spawn_from_snapshot(snap2)
+#print snap2
 
 # GET
 ascii_print(game)
@@ -220,10 +255,11 @@ if len(game.read_log()) > 1: print game.read_log()[-2]
 if len(game.read_log()): print game.read_log()[-1]
 
 # POST
-while not game.is_game_over():
+if not game.is_game_over():
     choice = query_option(game)
     tray_id = game.next_tray.id_num
     game.make_choice(choice, tray_id)
+    file_snap(game.master_snapshot())
     ascii_print(game)
     if len(game.read_log()) > 6: print game.read_log()[-7]
     if len(game.read_log()) > 5: print game.read_log()[-6]
