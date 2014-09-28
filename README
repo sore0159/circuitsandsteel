@@ -1,7 +1,8 @@
 Python implimentation of Flash Duel
 Split across several files for readability/editability, not for any functional reason.
+This is a pretty amateur project, you may notice that.  Several very useful functions written halfway through means something works one way at one point and another way at other points!  Exciting.
+The snapshot feature in particular shows how ill suited and unneeded to the game most of the underlying object design in.  A simple set of dictionaries carries all the information the game needs!
 
-1v1 working pretty well, 2v2 mostly through implimentation
-TODO: AI implimentaiton, web page integration
-TODO: Dragon implimentation, Powers implimentation (maybe)
-TODO: Simplify base data structures, no need for all those objects and lists.  Maybe not worth messing with what works for now though.
+No Powers 1v1 and 2v2 basically working
+AI opponents, Web interface to come
+Dragons and Powers much farther off

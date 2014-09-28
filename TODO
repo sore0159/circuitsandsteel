@@ -1,8 +1,16 @@
+Run Script upgrades
+	use the command line to test passing in args for choices
+	update file write names for game id
+	update script to use game id, player id args from bash
+	graveyard display
 Impliment AI
 	Simple AI for now, "Little Bobby Tables"
 	More robust Gamestate-Snapshot feature (shelve, pickle?)
 Bugtesting
 	AI should help with bugtesting
+Temporal Display
+	Some way to see a replay of the progress of the game from gamelog or snapshots
+	just extended logstring printing for now I guess
 Integrate game on web
 	web.py? flask? Something else?
 	probably need mysql or at least shelve integration for this
