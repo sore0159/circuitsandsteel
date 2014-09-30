@@ -88,31 +88,49 @@ class Game(Linker):
             if suff.suf_type == 'cry':
                 suff_dict['source'] = suff.source_player().pretty_name()
             suff_dict_list.append(suff_dict)
+        if self.next_tray:
+            choice_tuple = (self.next_tray.check('owner')[0].pretty_name(),
+                    self.next_tray.choice_ids
+                    )
+        else: choice_tuple = (0,0)
 
-        dead_players = []
-        for player in self.gameboard['player']:
-            if player not in self.turn_order:
-                dead_players.append(player)
+        #dead_players = []
+        #for player in self.gameboard['player']:
+        #    if player not in self.turn_order:
+        #        dead_players.append(player)
         snapshot = {
                 'log': self.game_log,
                 'turnorder':[player.pretty_name() for player in self.turn_order], 
-                'dead':[player.pretty_name() for player in dead_players],
+                #'dead':[player.pretty_name() for player in dead_players],
                 'whosturn': self.whos_turn.pretty_name() ,
                 'imp':suff_dict_list,
                 'deck': (len(self.gameboard['deck'][0].check()), self.gameboard['deck'][0].cycles),
                 'grave': [card.value for card in self.gameboard['graveyard'][0].check()]
                 }
+        en_dir = 'down'
+        for faction in self.gameboard['faction']:
+            points = faction.points
+            name = faction.pretty_name()
+            players = [player.pretty_name() for player in faction.players()]
+            if en_dir == 'down':
+                snapshot['leftfaction'] = {'name':name, 'score':points, 'players':players}
+            elif en_dir == 'up':
+                snapshot['rightfaction'] = {'name':name, 'score':points, 'players':players}
+            en_dir = 'up'
+
         for player in self.gameboard['player']:
             player_name = player.pretty_name()
-            while player_name in snapshot or player_name in ['game', 'mycards']:
-                player_name += 'I'
-                #maybe just an erorr =/
+            while player_name in snapshot or player_name in ['choices', 'game', 'mycards']:
+                #player_name += random.randint(0,9)
+                    #can't because faction link, turnorder link =/
                 raise Exception #Bad Player Name
             snapshot[player_name] = {'dragon':player.is_dragon(), 'num_cards':len(player.cards()), 'spot':player.token_spot_val(), 'health':player.stat(), 'winded':player.winded, 'faction':player.check()[0].pretty_name(), 'score':player.score(), 'color':player.check('owns')[0].color()}
             if player_id == player.id_num:
                 this_player = player
         if this_player:
-            snapshot['mycards'] = [card.value for card in this_player.cards()]
+            snapshot['mycards'] = (this_player.pretty_name(), [card.value for card in this_player.cards()])
+            if this_player.pretty_name() == choice_tuple[0]:
+                snapshot['choices'] = choice_tuple
         return snapshot
 
     def master_snapshot(self):
@@ -123,6 +141,11 @@ class Game(Linker):
             snapshot[player.pretty_name()]['id_num'] = player.id_num
         snapshot['deck'] = ([card.value for card in self.gameboard['deck'][0].check()], self.gameboard['deck'][0].cycles)
         snapshot['game'] = (self.game_type, self.game_id, self.game_start)
+        if self.next_tray:
+            choice_tuple = (self.next_tray.check('owner')[0].pretty_name(),
+                    self.next_tray.choice_ids
+                    )
+            snapshot['choices'] = choice_tuple
         return snapshot
 
 
@@ -186,9 +209,14 @@ class Game(Linker):
         turn_pref = turn_pref[:num_players]
         fac_turn_pref = fac_turn_pref[:num_players]
         #############  END THINGS TO BE PASSED AS ARGS LATER  ############
+        ##############  FACTIONS  ##############
+        snapshot['leftfaction'] = {'name':fac_list[0], 'score':0, 'players':[]}
+        snapshot['rightfaction'] = {'name':fac_list[1], 'score':0, 'players':[]}
+        ############## END FACTIONS ############
         game_log = []
         game_log.append('Game Start, Game Type %d' % game_type)
         skip_count = 0
+        fac_string = 'leftfaction'
         is_dragon = 0
         p_health = 1
         player_id_list = [0]
@@ -197,6 +225,7 @@ class Game(Linker):
         for i in range(num_players):
             if i >= fac1_size:
                 skip_count = 1
+                fac_string = 'rightfaction'
                 spot = 18
             if skip_count and game_type in [4, 5, 6 , 7]:
                 is_dragon = 1
@@ -208,8 +237,9 @@ class Game(Linker):
             player_cards = []
             for j in range(hand_size):
                 player_cards.append(deck.pop())
-            player_dict = {'dragon': is_dragon, 'num_cards': len(player_cards) , 'spot':spot , 'health': p_health, 'winded':0, 'faction':fac_list[skip_count] , 'score':0, 'color':color_list[i] , 'id_num':rand_num, 'cards':player_cards}
+            player_dict = {'dragon': is_dragon, 'num_cards': len(player_cards) , 'spot':spot , 'health': p_health, 'winded':0, 'color':color_list[i] , 'id_num':rand_num, 'cards':player_cards}
             snapshot[name_list[i]] = player_dict
+            snapshot[fac_string]['players'].append(name_list[i])
 
         index_order = self.str_turn_order(fac1_size, turn_pref, fac_turn_pref)
         turn_order = []
@@ -250,6 +280,17 @@ class Game(Linker):
             self.spaces()[i].interact(self.spaces()[i+1])
 
         ############FACTIONS#################
+
+        fac1_name = snapshot['leftfaction']['name']
+        fac1_score = snapshot['leftfaction']['score']
+        fac2_name = snapshot['rightfaction']['name']
+        fac2_score = snapshot['rightfaction']['score']
+        fac1 = self.register(Faction(fac1_name))
+        fac1.points = fac1_score
+        fac2 = self.register(Faction(fac2_name))
+        fac2.points = fac2_score
+        fac1.link(fac2, 'rival')
+        comment = """
         p1_name = snapshot['turnorder'][0]
         fac1_name = snapshot[p1_name]['faction']
         fac1_score = snapshot[p1_name]['score']
@@ -268,10 +309,11 @@ class Game(Linker):
         if not fac2_name:
             raise Exception # Can't find second faction
         fac1 = self.register(Faction(fac1_name))
-        fac1.score = fac1_score
+        fac1.points = fac1_score
         fac2 = self.register(Faction(fac2_name))
-        fac2.score = fac2_score
+        fac2.points = fac2_score
         fac1.link(fac2, 'rival')
+        """
 
         ##############CARD GRAVEYARD############## 
         grave = self.register(GraveYard())
@@ -288,7 +330,42 @@ class Game(Linker):
         ##############TOKENS#################
         #############HHANDS###################
         #fac1_name
+        for fac_string in ['leftfaction', 'rightfaction']: 
+            for player_name in snapshot[fac_string]['players']:
+                player_info = snapshot[player_name]
+                x = self.register(Player(self.game_id, player_info['id_num'], player_name))
+                self.turn_order.append(x)
+                x.winded = player_info['winded']
+                x.status = player_info['health']
+                x.dragon = player_info['dragon']
+                token = self.register(Token(player_info['color']))
+                x.interact(token)
+                token.status = x.status
+                token.winded = x.winded
+                token.dragon = x.dragon
+
+                if fac_string == 'leftfaction':
+                    x.interact(fac1)
+                else:
+                    x.interact(fac2)
+                p_hand = self.register(Hand())
+                x.interact(p_hand)
+                if(token.status >0):
+                    gamespot = self.gameboard['gamespace'][player_info['spot']-1]
+                    gamespot.interact(token)
+                    token.interact(x.check()[0])
+                    player_info['token'] = token
+                    player_info['gamespot'] = gamespot
+                for card_val in player_info['cards']:
+                    card = self.register(Card(grave, card_val))
+                    p_hand.interact(card)
+                player_info['object'] = x
+                player_info['hand'] = p_hand
         self.turn_order = []
+        for player in snapshot['turnorder']:
+            self.turn_order.append(snapshot[player]['object'])
+
+        varname = """
         if 'dead' in snapshot: dead_list = snapshot['dead']
         else: dead_list = []
         for player_name in dead_list:
@@ -340,35 +417,36 @@ class Game(Linker):
             player_info['token'] = token
             player_info['gamespot'] = gamespot
             player_info['hand'] = p_hand
+                """
 
         self.whos_turn = snapshot[snapshot['whosturn']]['object']
     ############ ACTION TRAY ############
-        cries = []
-        not_cries = []
-        try:
-            impending = snapshot['imp']
-        except:
-            impending = []
-        #impending = getattr(snapshot, 'imp', [])
-        print '-'*60
-        print impending
-        print '-'*60
-        for suffering in impending:
-            if suffering['type'] == 'cry':
-                cries.append(suffering)
+        if not self.is_game_over():
+            cries = []
+            not_cries = []
+            try:
+                impending = snapshot['imp']
+            except:
+                impending = []
+            #impending = getattr(snapshot, 'imp', [])
+            for suffering in impending:
+                if suffering['type'] == 'cry':
+                    cries.append(suffering)
+                else:
+                    not_cries.append(suffering)
+            for suffering in not_cries:
+                suf_obj = self.gen_suff_from_snap(suffering, snapshot)
+                snapshot[suffering['victim']]['suffering'] = suf_obj
+            for suffering in cries:
+                suf_obj = self.gen_suff_from_snap(suffering, snapshot)
+                suf_obj.interact(snapshot[suffering['source']]['suffering'])
+            if not impending:
+                self.next_tray = self.make_action_tray(self.whos_turn)
+                #self.game_start = 0
             else:
-                not_cries.append(suffering)
-        for suffering in not_cries:
-            suf_obj = self.gen_suff_from_snap(suffering, snapshot)
-            snapshot[suffering['victim']]['suffering'] = suf_obj
-        for suffering in cries:
-            suf_obj = self.gen_suff_from_snap(suffering, snapshot)
-            suf_obj.interact(snapshot[suffering['source']]['suffering'])
-        if not impending:
-            self.next_tray = self.make_action_tray(self.whos_turn)
-            #self.game_start = 0
+                self.update_next_tray()
         else:
-            self.update_next_tray()
+            self.next_tray = 0
 
 
     def gen_suff_from_snap(self, suffering, snapshot):
@@ -773,13 +851,21 @@ class Game(Linker):
 
   #################  BEGIN FLOW CONTROL FUNCITONS  #################
     def reset_match(self, who_won=''):
+        comment = """
         for token in self.gameboard['deadtoken']:
             self.gameboard['token'].append(token)
             token.interact(token.check('owned')[0].check()[0])
         self.gameboard['deadtoken'] = []
+        """
         for i in self.gameboard['tray']:
             i.destroy()
             self.deregister(i)
+        for player in self.gameboard['player']:
+            token = player.check('owns')[0]
+            faction = player.check()[0]
+            if not token.check():
+                token.interact(faction)
+
         for i in self.gameboard['faction'][0].check():
             if i.type_string == 'token':
                 i.stat(1)
@@ -1051,7 +1137,7 @@ class Game(Linker):
         else:
             winner = game_over
             winner.score(1)
-            self.log(winner.pretty_name()+ ' wins the match.')
+            self.log(winner.pretty_name()+ ' win the match.')
         if winner:
             if winner.score() < 3 and self.game_type < 4:
                 self.reset_match(winner)

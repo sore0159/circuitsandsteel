@@ -67,6 +67,10 @@ class Player(Location):
             return self.check('owns')[0].check('at')[0].val()
         except:
             return None
+    def token(self):
+        return self.check('owns')[0]
+    def faction(self):
+        return self.check()[0]
 
     def score(self):
         return self.check()[0].points
@@ -91,12 +95,32 @@ class Faction(Location):
         self.public = 1
         self.points = 0
 
+    def rival(self):
+        return self.check('rival')[0]
+
     def pretty_name(self):
         return self.des
 
     def score(self, mod =0):
         self.points += mod
         return self.points
+
+    def tokens(self, arg=-1):
+        t_list = []
+        for thing in self.check():
+            if thing.type_string == 'token':
+                t_list.append(thing)
+        if arg >= 0:
+            return t_list[arg] #can give Index Error!
+        else:
+            return t_list
+
+    def players(self):
+        p_list = []
+        for thing in self.check():
+            if thing.type_string == 'player':
+                p_list.append(thing)
+        return p_list
 
     def interact(self, other, kind=0):
         x = other.type_string

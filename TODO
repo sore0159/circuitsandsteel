@@ -1,13 +1,12 @@
 Run Script upgrades
-	use the command line to test passing in args for choices
-	update file write names for game id
-	update script to use game id, player id args from bash
-	graveyard display
+	print_from_snapshot
 Impliment AI
 	Simple AI for now, "Little Bobby Tables"
 	More robust Gamestate-Snapshot feature (shelve, pickle?)
 Bugtesting
 	AI should help with bugtesting
+Game Name
+	Can't keep calling it En Garde or Flash Duel, those are copyright.  Need my own name: Steel Against (On? Versus?) Steel.  Clash of Steel?
 Temporal Display
 	Some way to see a replay of the progress of the game from gamelog or snapshots
 	just extended logstring printing for now I guess
@@ -15,6 +14,8 @@ Integrate game on web
 	web.py? flask? Something else?
 	probably need mysql or at least shelve integration for this
         check game_id on creation vs games in progress
+ASCII ART
+	Dragon icon, Block/Hit pictures, Win/Lose pictures
 Impliment Dragon
 	Ignore Dragon Powers for now
 Impliment Powers
@@ -24,3 +25,8 @@ Total Data Structure Rewrite
 	probably should do this anyway sometime, it's a mess in there
 	for now, it works, don't break it
 
+  #############  DONE  #############
+	graveyard display
+	use the command line to test passing in args for choices
+	update file write names for game id
+	update script to use game id, player id args from bash

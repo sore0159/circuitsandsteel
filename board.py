@@ -62,6 +62,12 @@ class Token(Linker):
             if x[0] < target[0]: target = x
         return target
 
+    def faction(self):
+        try:
+            return self.check()[0]
+        except:
+            return None
+
     def home_dir(self):
         en_dir = self.closest_enemy()[1]
         if en_dir == 'up':
@@ -128,6 +134,36 @@ class GameSpace(Location):
             if test and not set(test.check('has'))&rivals:
                 target = test
         return target
+
+    def closest_token(self):
+        direction = 'up'
+        target = self
+        check = target.check('has')
+        if check:
+            return check[0]
+        else:
+            token = (20,0)
+            i = 0
+            dist = 0
+            while i < 2:
+                next_tar = target.count(1, direction)
+                if next_tar == False:
+                    i += 1
+                    direction = 'down'
+                    dist = 0
+                    target = self
+                else:
+                    target = next_tar
+                    dist += 1
+                    check = target.check('has')
+                    if check:
+                        i += 1
+                        direction = 'down'
+                        dist = 0
+                        target = self
+                        if token[0] > dist:
+                            token = (dist, check[0])
+        return token[1]
 
 
     def how_far(self, spot):
