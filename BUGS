@@ -1,7 +1,9 @@
-BUG: Always faction1 win the coin flip?
+create_turn_order function needs to be restored
 ---------------------------------------------------------------------------
+FIXED: (Mostly) No options at snapshot gen
+FIXED: Always faction1 win the coin flip?
 FIXED: After losing match but before snapshot, last-hit not reset to proper place?
-MAYBE: Factions switch 'sides' of the board based on whos first in the turn order (snapshot load feature)
+FIXED: Factions switch 'sides' of the board based on whos first in the turn order (snapshot load feature)
 FIXED Tokens facing the wrong way after a match reset
 FIXED Winning a match is bugged
 FIXED When a card is used for aid it still may be counted as available for own defense (related to option tray creation timing)

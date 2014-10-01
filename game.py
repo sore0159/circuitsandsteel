@@ -135,7 +135,7 @@ class Game(Linker):
             snapshot[player.pretty_name()]['cards'] = player_cards
             snapshot[player.pretty_name()]['id_num'] = player.id_num
         snapshot['deck'] = ([card.value for card in self.gameboard['deck'][0].check()], self.gameboard['deck'][0].cycles)
-        snapshot['game'] = (self.game_type, self.game_id, self.game_start)
+        snapshot['game'] = (self.game_type, self.game_id)
         if self.next_tray:
             choice_tuple = (self.next_tray.check('owner')[0].pretty_name(),
                     self.next_tray.choice_ids
@@ -146,115 +146,10 @@ class Game(Linker):
 
 ##############END OBJECT REGISTRATION ACT###########
 #############CREATE GAME###############
-    def random_gamestart_snapshot(self, game_type=0):
-        rand_id = random.randint(1000,9999)
-        #check against other games in progress
-        snapshot = {'game':(game_type, rand_id, 1)}
-        cycles = 0 
-        extra_cards = 0 
-        num_players = 2
-        fac1_size = 1
-        dragon = 0 # hp, cards, abils
-        powers = 1
-        if game_type == 1: #two vs two, no powers
-            num_players = 4
-            fac1_size = 2
-            powers = 0
-            extra_cards = 5
-        elif game_type == 2: #1v1 powers
-            powers = 1
-        elif game_type == 3: #2v2 powers
-            num_players = 4
-            fac1_size = 2
-            extra_cards = 5
-        elif game_type == 4: #2vD
-            num_players = 2
-            fac1_size = 2
-            dragon = (2, 7, 4)
-            extra_cards = 5
-        elif game_type == 5: #3vD
-            num_players = 3
-            fac1_size = 3
-            dragon = (3, 8, 6)
-            extra_cards = 3
-            cycles = 1
-        elif game_type == 6: #4vD
-            num_players = 4
-            fac1_size = 4
-            dragon = (4, 9, 8)
-            extra_cards = 5
-            cycles = 1
-        elif game_type == 7: #3vD+T  not sure how to do traitor
-            num_players = 4
-            fac1_size = 4
-            dragon = (3, 8, 6)
-            extra_cards = 5
-            cycles = 1
-        else:
-            powers = 0 #default, 1v1 no powers
-        deck = range(1,6)*(5+extra_cards)
-        random.shuffle(deck)
-
-        #############  THINGS NEED TO BE PASSED AS ARGS LATER  ############
-        color_list = ['red', 'blue', 'green', 'yellow']
-        name_list = ['Player One', 'Player Two', 'Player Three', 'Player Four', 'Player Five'] 
-        fac_list = ['The Robo-Jets', 'The Mecha-Sharks']
-        turn_pref= ['mid','mid','mid','mid','mid']
-        fac_turn_pref = ['first', 'first', 'first', 'first', 'first' ]
-        turn_pref = turn_pref[:num_players]
-        fac_turn_pref = fac_turn_pref[:num_players]
-        #############  END THINGS TO BE PASSED AS ARGS LATER  ############
-        ##############  FACTIONS  ##############
-        snapshot['leftfaction'] = {'name':fac_list[0], 'score':0, 'players':[]}
-        snapshot['rightfaction'] = {'name':fac_list[1], 'score':0, 'players':[]}
-        ############## END FACTIONS ############
-        game_log = []
-        game_log.append('Game Start, Game Type %d' % game_type)
-        skip_count = 0
-        fac_string = 'leftfaction'
-        is_dragon = 0
-        p_health = 1
-        player_id_list = [0]
-        hand_size = 5
-        spot = 1
-        for i in range(num_players):
-            if i >= fac1_size:
-                skip_count = 1
-                fac_string = 'rightfaction'
-                spot = 18
-            if skip_count and game_type in [4, 5, 6 , 7]:
-                is_dragon = 1
-                p_health = dragon[0]
-                hand_size = dragon[1]
-            rand_num = 0
-            while rand_num in player_id_list:
-                rand_num = random.randint(100,999)
-            player_cards = []
-            for j in range(hand_size):
-                player_cards.append(deck.pop())
-            player_dict = {'dragon': is_dragon, 'num_cards': len(player_cards) , 'spot':spot , 'health': p_health, 'winded':0, 'color':color_list[i] , 'id_num':rand_num, 'cards':player_cards}
-            snapshot[name_list[i]] = player_dict
-            snapshot[fac_string]['players'].append(name_list[i])
-
-        index_order = self.str_turn_order(fac1_size, turn_pref, fac_turn_pref)
-        turn_order = []
-        logstring = 'Turn Order Set: '
-        for index in index_order:
-            turn_order.append(name_list[index])
-            logstring += turn_order[-1]+', '
-        logstring = logstring[:-2]
-        game_log.append(logstring)
-        snapshot['turnorder']= turn_order
-        snapshot['whosturn']= turn_order[0]
-        snapshot['deck'] = (deck, cycles)
-        snapshot['grave'] = []
-        snapshot['log'] = game_log
-        return snapshot
 
     def spawn_from_snapshot(self, snapshot):
         self.game_id = snapshot['game'][1]
         self.game_type = snapshot['game'][0]
-        self.game_start = snapshot['game'][2]
         self.game_log = snapshot['log']
         self.gameboard = {}
 
@@ -359,13 +254,8 @@ class Game(Linker):
                 suf_obj.interact(snapshot[suffering['source']]['suffering'])
             if not impending:
                 self.next_tray = self.make_action_tray(self.whos_turn)
-                #self.game_start = 0
             else:
                 self.update_next_tray()
-            choice_tuple = (self.next_tray.check('owner')[0].pretty_name(),
-                    self.next_tray.choice_ids
-                    )
-            snapshot['choices'] = choice_tuple
         else:
             self.next_tray = 0
 
@@ -399,68 +289,6 @@ class Game(Linker):
     #                TBI                # 
         
 ###########END CREATE GAME#############
-
-    def str_turn_order(self, fac1_size, turn_prefs, fac_turn_prefs, who_won=-1):
-        fac1_vote = 0
-        fac2_vote = 0
-        skip_count = 0
-        for i in range(len(fac_turn_prefs)):#collect votes for factions
-            if i >= fac1_size: skip_count = 1
-            vote = fac_turn_prefs[i]
-            if vote == 'first':
-                vote = -1
-            elif vote == 'last':
-                vote = 1
-            else:
-                vote = 0
-            if skip_count: fac1_vote += vote
-            else: fac2_vote += vote
-        if who_won == 1: #only losers get to vote
-            final_vote = fac1_vote
-        elif who_won == 0:
-            final_vote = fac2_vote*-1
-        else: # no losers, it's random which team picks
-            if random.randint(0,1):
-                final_vote = fac1_vote
-            else:
-                final_vote = fac2_vote*-1
-        if final_vote == 0: # if that team doesn't care then hey
-            final_vote = random.choice([0,1])
-        elif final_vote > 0: 
-            final_vote = 1
-        else: final_vote = 0
-        fac2_size = len(turn_prefs) - fac1_size
-        #final_vote is 0 for fac1 or +1 for fac2
-        fac_p_list = [0,0]
-        fac_p_list[0] = self.inter_turn_order(turn_prefs[:fac1_size])
-        if fac2_size == 1 and fac1_size > 1: #DRAGON
-            turn_order = fac_p_list[0] + [fac1_size] # he always goes last
-        else: # team sizes are equal
-            turn_order = []
-            fac_p_list[1] = [x + fac1_size for x in self.inter_turn_order(turn_prefs[fac1_size:])]
-            for i in range(fac1_size):
-                turn_order.append(fac_p_list[final_vote][i])
-                turn_order.append(fac_p_list[final_vote-1][i])
-        return turn_order #returns turn order in indicies for players as given
-            # (index# for first to go), (index# for 2nd to go), etc.
-
-    def inter_turn_order(self, pref_list):
-        #opts: first last mid
-        sorted_turns = [[],[],[]]
-        turns = []
-        for i in range(len(pref_list)):
-            x = pref_list[i]
-            if x == 'mid':
-                sorted_turns[1].append(i)
-            elif x == 'first':
-                sorted_turns[0].append(i)
-            else:
-                sorted_turns[2].append(i)
-        for i in range(3):
-            random.shuffle(sorted_turns[i])
-            turns += sorted_turns[i]
-        return turns #returns list indicies in turn order
-
 
   #################  START TRAY CONSTRUCTION  ##################
 
@@ -641,6 +469,8 @@ class Game(Linker):
         for i in self.turn_order:
             log_string += i.pretty_name()+' '
         self.log('Turn Order set: '+log_string)
+
+
 
 
     def time_out(self):
