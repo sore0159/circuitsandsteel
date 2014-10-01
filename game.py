@@ -94,14 +94,9 @@ class Game(Linker):
                     )
         else: choice_tuple = (0,0)
 
-        #dead_players = []
-        #for player in self.gameboard['player']:
-        #    if player not in self.turn_order:
-        #        dead_players.append(player)
         snapshot = {
                 'log': self.game_log,
                 'turnorder':[player.pretty_name() for player in self.turn_order], 
-                #'dead':[player.pretty_name() for player in dead_players],
                 'whosturn': self.whos_turn.pretty_name() ,
                 'imp':suff_dict_list,
                 'deck': (len(self.gameboard['deck'][0].check()), self.gameboard['deck'][0].cycles),
@@ -290,30 +285,6 @@ class Game(Linker):
         fac2 = self.register(Faction(fac2_name))
         fac2.points = fac2_score
         fac1.link(fac2, 'rival')
-        comment = """
-        p1_name = snapshot['turnorder'][0]
-        fac1_name = snapshot[p1_name]['faction']
-        fac1_score = snapshot[p1_name]['score']
-        fac2_name = ''
-        for player in snapshot['turnorder']:
-            x = snapshot[player]['faction'] 
-            if x != fac1_name:
-                fac2_name = x
-                fac2_score = snapshot[player]['score']
-        if not fac2_name:
-            for player in snapshot['dead']:
-                x = snapshot[player]['faction']
-                if x != fac1_name:
-                    fac2_name = x
-                    fac2_score = snapshot[player]['score']
-        if not fac2_name:
-            raise Exception # Can't find second faction
-        fac1 = self.register(Faction(fac1_name))
-        fac1.points = fac1_score
-        fac2 = self.register(Faction(fac2_name))
-        fac2.points = fac2_score
-        fac1.link(fac2, 'rival')
-        """
 
         ##############CARD GRAVEYARD############## 
         grave = self.register(GraveYard())
@@ -364,62 +335,8 @@ class Game(Linker):
         self.turn_order = []
         for player in snapshot['turnorder']:
             self.turn_order.append(snapshot[player]['object'])
-
-        varname = """
-        if 'dead' in snapshot: dead_list = snapshot['dead']
-        else: dead_list = []
-        for player_name in dead_list:
-            player_info = snapshot[player_name]
-            x = self.register(Player(self.game_id, player_info['id_num'], player_name))
-            p_hand = self.register(Hand())
-            x.interact(p_hand)
-            x.status = player_info['health']
-            x.winded = player_info['winded']
-            x.dragon = player_info['dragon']
-            token = self.register(Token(player_info['color']))
-            x.interact(token)
-            token.status = x.status
-            token.winded = x.winded
-            token.dragon = x.dragon
-            if player_info['faction'] == fac1_name:
-                x.interact(fac1)
-            else:
-                x.interact(fac2)
-
-        for player_name in snapshot['turnorder']:
-            player_info = snapshot[player_name]
-            x = self.register(Player(self.game_id, player_info['id_num'], player_name))
-            self.turn_order.append(x)
-            x.winded = player_info['winded']
-            x.status = player_info['health']
-            x.dragon = player_info['dragon']
-            token = self.register(Token(player_info['color']))
-            x.interact(token)
-            token.status = x.status
-            token.winded = x.winded
-            token.dragon = x.dragon
-            if(token.status >0):
-                gamespot = self.gameboard['gamespace'][player_info['spot']-1]
-                gamespot.interact(token)
-
-            if player_info['faction'] == fac1_name:
-                x.interact(fac1)
-                token.interact(fac1)
-            else:
-                x.interact(fac2)
-                token.interact(fac2)
-            p_hand = self.register(Hand())
-            x.interact(p_hand)
-            for card_val in player_info['cards']:
-                card = self.register(Card(grave, card_val))
-                p_hand.interact(card)
-            player_info['object'] = x
-            player_info['token'] = token
-            player_info['gamespot'] = gamespot
-            player_info['hand'] = p_hand
-                """
-
         self.whos_turn = snapshot[snapshot['whosturn']]['object']
+
     ############ ACTION TRAY ############
         if not self.is_game_over():
             cries = []
@@ -445,6 +362,10 @@ class Game(Linker):
                 #self.game_start = 0
             else:
                 self.update_next_tray()
+            choice_tuple = (self.next_tray.check('owner')[0].pretty_name(),
+                    self.next_tray.choice_ids
+                    )
+            snapshot['choices'] = choice_tuple
         else:
             self.next_tray = 0
 
@@ -470,132 +391,6 @@ class Game(Linker):
         suf_obj.can_call_for_aid = suffering['can_call']
         return suf_obj
 
-
-    def spawn(self, game_type=0, color_list=['red', 'blue', 'green', 'yellow']):
-        self.game_id = random.randint(1000,9999)
-        #check against other existing gamenums when we have files and stuff
-        self.gameboard = {}
-        self.log('Game Start')
-
-    ##############GAME BOARD#############
-    # always the same
-        x = 'dark'
-        for i in range(9):
-            y = self.register(GameSpace(x))
-            z = self.register(GameSpace(x))
-            y.des = str(2*i+1)
-            z.des = str(2*i+2)
-            if x == 'dark':
-                x = 'light' 
-            else:
-                x = 'dark'
- 
-        for i in range(len(self.spaces())-1):
-            self.spaces()[i].interact(self.spaces()[i+1])
-
-    ############FACTIONS#################
-    # There are always two
-        fac1 = self.register(Faction('The Mecha-Sharks'))
-        fac2 = self.register(Faction('The Robo-Jets'))
-        fac1.link(fac2, 'rival')
-
-    #############GAME TYPE################
-    # num tokens (query for color)
-    # teams
-    # powers avail
-    # DRAGON!?!?!
-    # deck vars: cycles, extra_cards
-
-        cycles = 0 
-        extra_cards = 0 
-        num_players = 2
-        fac1_size = 1
-        dragon = 0 # hp, cards, abils
-        powers = 1
-        if len(color_list) < num_players:
-            color_list = ['red', 'blue', 'green', 'yellow']
-
-        self.game_type = game_type
-        if game_type == 1: #two vs two, no powers
-            num_players = 4
-            fac1_size = 2
-            powers = 0
-            extra_cards = 5
-        elif game_type == 2: #1v1 powers
-            powers = 1
-        elif game_type == 3: #2v2 powers
-            num_players = 4
-            fac1_size = 2
-            extra_cards = 5
-        elif game_type == 4: #2vD
-            num_players = 2
-            fac1_size = 2
-            dragon = (2, 7, 4)
-            extra_cards = 5
-        elif game_type == 5: #3vD
-            num_players = 3
-            fac1_size = 3
-            dragon = (3, 8, 6)
-            extra_cards = 3
-            cycles = 1
-        elif game_type == 6: #4vD
-            num_players = 4
-            fac1_size = 4
-            dragon = (4, 9, 8)
-            extra_cards = 5
-            cycles = 1
-        elif game_type == 7: #3vD+T  not sure how to do traitor
-            num_players = 4
-            fac1_size = 4
-            dragon = (3, 8, 6)
-            extra_cards = 5
-            cycles = 1
-        else:
-            powers = 0 #default, 1v1 no powers
-
-    ##############CARD GRAVEYARD############## 
-        grave = self.register(GraveYard())
-        self.gameboard['deadtoken'] = []
-    ##############CARD DECK############## 
-        deck = self.register(Deck(grave, cycles)) #cycles set above
-        for i in range(1,6):
-            for j in range(5+(extra_cards)): # extra_cards set above
-                deck.interact(self.register(Card(grave, i)))
-        deck.shuffle()
-
-    ############PLAYERS##################
-    ##############TOKENS#################
-    #############HANDS###################
-        skip_count = 0
-        names = ['One', 'Two', 'Three', 'Four', 'Five']
-        player_id_list = [0]
-        for i in range(num_players):
-            if i >= fac1_size:
-                skip_count = 1
-            rand_num = 0
-            while rand_num in player_id_list:
-                rand_num = random.randint(100,999)
-            x = self.register(Player(self.game_id, rand_num))
-            x.des = 'Player '+names[i]
-            y = self.register(Token(color_list[i]))
-            z = self.register(Hand())
-            x.interact(y)
-            x.interact(z)
-            x.interact(self.gameboard['faction'][skip_count])
-            y.interact(self.gameboard['faction'][skip_count])
-            self.spaces()[-skip_count].interact(y) #hope they're still in order!
-            for i in range(5):
-                z.interact(deck)
-
-    #############TURN ORDER##############
-        self.turn_order= self.create_turn_order()
-        self.whos_turn = self.turn_order[0]
-        log_string = ''
-        for i in self.turn_order:
-            log_string += i.pretty_name()+' '
-        self.log('Turn Order set: '+log_string)
-    ############ ACTION TRAY ############
-        self.next_tray = self.make_action_tray(self.whos_turn)
 
     #############DRAGON##################
     ###############TRAITOR###############
@@ -630,12 +425,12 @@ class Game(Linker):
             else:
                 final_vote = fac2_vote*-1
         if final_vote == 0: # if that team doesn't care then hey
-            final_vote = random.choice([-1,1])
+            final_vote = random.choice([0,1])
         elif final_vote > 0: 
             final_vote = 1
-        else: final_vote = -1
+        else: final_vote = 0
         fac2_size = len(turn_prefs) - fac1_size
-        #final_vote is -1 for fac1 or +1 for fac2
+        #final_vote is 0 for fac1 or +1 for fac2
         fac_p_list = [0,0]
         fac_p_list[0] = self.inter_turn_order(turn_prefs[:fac1_size])
         if fac2_size == 1 and fac1_size > 1: #DRAGON
@@ -644,8 +439,8 @@ class Game(Linker):
             turn_order = []
             fac_p_list[1] = [x + fac1_size for x in self.inter_turn_order(turn_prefs[fac1_size:])]
             for i in range(fac1_size):
-                turn_order.append(fac_p_list[final_vote-1][i])
                 turn_order.append(fac_p_list[final_vote][i])
+                turn_order.append(fac_p_list[final_vote-1][i])
         return turn_order #returns turn order in indicies for players as given
             # (index# for first to go), (index# for 2nd to go), etc.
 
@@ -665,50 +460,6 @@ class Game(Linker):
             random.shuffle(sorted_turns[i])
             turns += sorted_turns[i]
         return turns #returns list indicies in turn order
-
-    def create_turn_order(self, who_won=''):
-        factions = self.gameboard['faction']
-        if not who_won:
-            who_won = factions[random.choice([0,1])]
-        fac1_order = [[],[],[]]
-        fac1_vote = 0
-        for i in factions[0].check():
-            if i.type_string == 'player':
-                fac1_order[i.in_team_order()].append(i)
-                fac1_vote+=i.fac_order()
-        random.shuffle(fac1_order[0]) 
-        random.shuffle(fac1_order[1]) 
-        random.shuffle(fac1_order[2]) 
-        fac1_order = fac1_order[0]+fac1_order[1]+fac1_order[2]
-
-        fac2_order = [[],[],[]]
-        fac2_vote = 0
-        for i in factions[1].check():
-            if i.type_string == 'player':
-                fac2_order[i.in_team_order()].append(i)
-                fac2_vote+=i.fac_order()
-        random.shuffle(fac2_order[0]) 
-        random.shuffle(fac2_order[1]) 
-        random.shuffle(fac2_order[2]) 
-        fac2_order = fac2_order[0]+fac2_order[1]+fac2_order[2]
-        fac_order = [fac1_order, fac2_order]
-        
-        turn_order = []
-        if self.game_type > 3 : # DRAGON
-            turn_order = fac1_order + fac2_order
-        else: # no dragon
-            if who_won == factions[1] and fac1_vote:
-                if fac1_vote > 0: choice = 1
-                else: choice = 0
-            elif who_won == factions[0] and fac2_vote:
-                if fac2_vote > 0: choice = 0
-                else: choice = 1
-            else:
-                choice = random.choice([0,1])
-            for i in range(len(fac_order[0])):
-                turn_order.append(fac_order[choice][i])
-                turn_order.append(fac_order[1-choice][i])
-        return turn_order
 
 
   #################  START TRAY CONSTRUCTION  ##################
@@ -851,12 +602,6 @@ class Game(Linker):
 
   #################  BEGIN FLOW CONTROL FUNCITONS  #################
     def reset_match(self, who_won=''):
-        comment = """
-        for token in self.gameboard['deadtoken']:
-            self.gameboard['token'].append(token)
-            token.interact(token.check('owned')[0].check()[0])
-        self.gameboard['deadtoken'] = []
-        """
         for i in self.gameboard['tray']:
             i.destroy()
             self.deregister(i)
@@ -997,13 +742,7 @@ class Game(Linker):
 
     def make_choice(self, choice, id_num):
         if id_num == self.next_tray.id_num and choice in self.next_tray.choice_ids:
-            #a = self.next_tray.check('owner')[0]
-            #actor = a.pretty_name()
-            #self.log(actor+' took action '+choice)
             self.log(choice+':'+self.next_tray.resolve(choice))
-            #b = a.check('owns')[0].check('at')
-            #if b: ender =', ending on '+b[0].pretty_name()
-            #else: ender = ' and died!'
             self.gameboard['tray'].remove(self.next_tray)
             self.next_tray = 0
             for token in self.gameboard['token']:
