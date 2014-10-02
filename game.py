@@ -119,7 +119,7 @@ class Game(Linker):
                 #player_name += random.randint(0,9)
                     #can't because faction link, turnorder link =/
                 raise Exception #Bad Player Name
-            snapshot[player_name] = {'dragon':player.is_dragon(), 'num_cards':len(player.cards()), 'spot':player.token_spot_val(), 'health':player.stat(), 'winded':player.winded, 'faction':player.check()[0].pretty_name(), 'score':player.score(), 'color':player.check('owns')[0].color()}
+            snapshot[player_name] = {'dragon':player.is_dragon(), 'num_cards':len(player.cards()), 'spot':player.token_spot_val(), 'health':player.stat(), 'winded':player.winded, 'faction':player.check()[0].pretty_name(), 'score':player.score(), 'color':player.check('owns')[0].color(), 'controller':player.controller}
             if player_id == player.id_num:
                 this_player = player
         if this_player:
@@ -204,6 +204,7 @@ class Game(Linker):
                 x.winded = player_info['winded']
                 x.status = player_info['health']
                 x.dragon = player_info['dragon']
+                x.controller = player_info['controller']
                 token = self.register(Token(player_info['color']))
                 x.interact(token)
                 token.status = x.status
@@ -470,7 +471,49 @@ class Game(Linker):
             log_string += i.pretty_name()+' '
         self.log('Turn Order set: '+log_string)
 
+    def create_turn_order(self, who_won=''):
+        factions = self.gameboard['faction']
+        if not who_won:
+            who_won = factions[random.choice([0,1])]
+        fac1_order = [[],[],[]]
+        fac1_vote = 0
+        for i in factions[0].check():
+            if i.type_string == 'player':
+                fac1_order[i.in_team_order()].append(i)
+                fac1_vote+=i.fac_order()
+        random.shuffle(fac1_order[0]) 
+        random.shuffle(fac1_order[1]) 
+        random.shuffle(fac1_order[2]) 
+        fac1_order = fac1_order[0]+fac1_order[1]+fac1_order[2]
 
+        fac2_order = [[],[],[]]
+        fac2_vote = 0
+        for i in factions[1].check():
+            if i.type_string == 'player':
+                fac2_order[i.in_team_order()].append(i)
+                fac2_vote+=i.fac_order()
+        random.shuffle(fac2_order[0]) 
+        random.shuffle(fac2_order[1]) 
+        random.shuffle(fac2_order[2]) 
+        fac2_order = fac2_order[0]+fac2_order[1]+fac2_order[2]
+        fac_order = [fac1_order, fac2_order]
+        
+        turn_order = []
+        if self.game_type > 3 : # DRAGON
+            turn_order = fac1_order + fac2_order
+        else: # no dragon
+            if who_won == factions[1] and fac1_vote:
+                if fac1_vote > 0: choice = 1
+                else: choice = 0
+            elif who_won == factions[0] and fac2_vote:
+                if fac2_vote > 0: choice = 0
+                else: choice = 1
+            else:
+                choice = random.choice([0,1])
+            for i in range(len(fac_order[0])):
+                turn_order.append(fac_order[choice][i])
+                turn_order.append(fac_order[1-choice][i])
+        return turn_order
 
 
     def time_out(self):
@@ -521,7 +564,10 @@ class Game(Linker):
         for f2_space in fac2_list:
             f2_card_dict = fac2_list[f2_space][1]
             f2_token = fac2_list[f2_space][0][0]
-            enemy_dir = f2_token.closest_enemy()[1]
+            # need to update token list in case people died
+            # but no, even if they died they can strike at others
+            # look, we know this is the rightguys
+            enemy_dir = 'up'  # HACK
             for card_val in f2_card_dict:
                 f2_cards = f2_card_dict[card_val]
                 possible_target = f2_space.count(card_val, enemy_dir) 
@@ -570,8 +616,8 @@ class Game(Linker):
             self.log(winner.pretty_name()+' won by final blows')
         return winner 
 
-    def make_choice(self, choice, id_num):
-        if id_num == self.next_tray.id_num and choice in self.next_tray.choice_ids:
+    def make_choice(self, choice):
+        if choice in self.next_tray.choice_ids:
             self.log(choice+':'+self.next_tray.resolve(choice))
             self.gameboard['tray'].remove(self.next_tray)
             self.next_tray = 0

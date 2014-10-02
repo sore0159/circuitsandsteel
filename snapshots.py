@@ -1,13 +1,19 @@
 import cPickle as pickle
+import copy
+import random
   ##################  START SNAPSHOT GEN  ###############
 
-def random_gamestart_snapshot(self, game_type=0, game_id=0):
+def random_gamestart_snapshot(game_type=0, game_id=0, player_list=['human']*5):
     try:
         if game_id[0] == 'g':
             game_id = game_id[1:]
         game_id = int(game_id)
     except:
         game_id = 0
+    try:
+        game_type = int(game_type)
+    except:
+        game_type = 0
     snapshot = {'game':(game_type, game_id)}
     cycles = 0 
     extra_cards = 0 
@@ -20,37 +26,44 @@ def random_gamestart_snapshot(self, game_type=0, game_id=0):
         fac1_size = 2
         powers = 0
         extra_cards = 5
+        gt_string = 'Two Vs Two'
     elif game_type == 2: #1v1 powers
         powers = 1
+        gt_string = 'One Vs One, Powers'
     elif game_type == 3: #2v2 powers
         num_players = 4
         fac1_size = 2
         extra_cards = 5
+        gt_string = 'Two Vs Two, Powers'
     elif game_type == 4: #2vD
         num_players = 2
         fac1_size = 2
         dragon = (2, 7, 4)
         extra_cards = 5
+        gt_string = 'Two Vs DRAGON'
     elif game_type == 5: #3vD
         num_players = 3
         fac1_size = 3
         dragon = (3, 8, 6)
         extra_cards = 3
         cycles = 1
+        gt_string = 'Three Vs DRAGON'
     elif game_type == 6: #4vD
         num_players = 4
         fac1_size = 4
         dragon = (4, 9, 8)
         extra_cards = 5
         cycles = 1
-    elif game_type == 7: #3vD+T  not sure how to do traitor
-        num_players = 4
-        fac1_size = 4
-        dragon = (3, 8, 6)
-        extra_cards = 5
-        cycles = 1
+        gt_string = 'Four Vs DRAGON'
+    #elif game_type == 7: #3vD+T  not sure how to do traitor
+        #num_players = 4
+        #fac1_size = 4
+        #dragon = (3, 8, 6)
+        #extra_cards = 5
+        #cycles = 1
     else:
         powers = 0 #default, 1v1 no powers
+        gt_string = 'One Vs One'
     deck = range(1,6)*(5+extra_cards)
     random.shuffle(deck)
 
@@ -62,13 +75,15 @@ def random_gamestart_snapshot(self, game_type=0, game_id=0):
     fac_turn_pref = ['first', 'first', 'first', 'first', 'first' ]
     turn_pref = turn_pref[:num_players]
     fac_turn_pref = fac_turn_pref[:num_players]
+    #  player_list = ['human']*5 from above
+    controller_list = player_list
     #############  END THINGS TO BE PASSED AS ARGS LATER  ############
     ##############  FACTIONS  ##############
     snapshot['leftfaction'] = {'name':fac_list[0], 'score':0, 'players':[]}
     snapshot['rightfaction'] = {'name':fac_list[1], 'score':0, 'players':[]}
     ############## END FACTIONS ############
     game_log = []
-    game_log.append('Game Start, Game Type %d' % game_type)
+    game_log.append('Game Start, '+gt_string)
     skip_count = 0
     fac_string = 'leftfaction'
     is_dragon = 0
@@ -87,15 +102,16 @@ def random_gamestart_snapshot(self, game_type=0, game_id=0):
             hand_size = dragon[1]
         rand_num = 0
         while rand_num in player_id_list:
-            rand_num = random.randint(100,999)
+            rand_num = random.randint(10,99)
+        player_id_list.append(rand_num)
         player_cards = []
         for j in range(hand_size):
             player_cards.append(deck.pop())
-        player_dict = {'dragon': is_dragon, 'num_cards': len(player_cards) , 'spot':spot , 'health': p_health, 'winded':0, 'color':color_list[i] , 'id_num':rand_num, 'cards':player_cards}
+        player_dict = {'dragon': is_dragon, 'num_cards': len(player_cards) , 'spot':spot , 'health': p_health, 'winded':0, 'color':color_list[i] , 'id_num':rand_num, 'cards':player_cards, 'controller':controller_list[i]}
         snapshot[name_list[i]] = player_dict
         snapshot[fac_string]['players'].append(name_list[i])
 
-    index_order = self.str_turn_order(fac1_size, turn_pref, fac_turn_pref)
+    index_order = str_turn_order(fac1_size, turn_pref, fac_turn_pref)
     turn_order = []
     logstring = 'Turn Order Set: '
     for index in index_order:
@@ -112,7 +128,7 @@ def random_gamestart_snapshot(self, game_type=0, game_id=0):
     snapshot['choices'] = choice_tuple
     return snapshot
 
-def str_turn_order(self, fac1_size, turn_prefs, fac_turn_prefs, who_won=-1):
+def str_turn_order(fac1_size, turn_prefs, fac_turn_prefs, who_won=-1):
     fac1_vote = 0
     fac2_vote = 0
     skip_count = 0
@@ -144,19 +160,19 @@ def str_turn_order(self, fac1_size, turn_prefs, fac_turn_prefs, who_won=-1):
     fac2_size = len(turn_prefs) - fac1_size
     #final_vote is 0 for fac1 or +1 for fac2
     fac_p_list = [0,0]
-    fac_p_list[0] = self.inter_turn_order(turn_prefs[:fac1_size])
+    fac_p_list[0] = inter_turn_order(turn_prefs[:fac1_size])
     if fac2_size == 1 and fac1_size > 1: #DRAGON
         turn_order = fac_p_list[0] + [fac1_size] # he always goes last
     else: # team sizes are equal
         turn_order = []
-        fac_p_list[1] = [x + fac1_size for x in self.inter_turn_order(turn_prefs[fac1_size:])]
+        fac_p_list[1] = [x + fac1_size for x in inter_turn_order(turn_prefs[fac1_size:])]
         for i in range(fac1_size):
             turn_order.append(fac_p_list[final_vote][i])
             turn_order.append(fac_p_list[final_vote-1][i])
     return turn_order #returns turn order in indicies for players as given
         # (index# for first to go), (index# for 2nd to go), etc.
 
-def inter_turn_order(self, pref_list):
+def inter_turn_order(pref_list):
     #opts: first last mid
     sorted_turns = [[],[],[]]
     turns = []
@@ -221,15 +237,48 @@ def game_over_from_snap(snapshot):
             game_over = 0
     return game_over
 
+def player_snap_from_master(master_snap, player_name=''):
+    if player_name.isdigit():
+        name_dict = names_from_ids(master_snap)
+        p_id = int(player_name)
+        if p_id in name_dict:
+            player_name = name_dict[p_id]
+        else:
+            player_name = 'p0'
+    snapshot = copy.deepcopy(master_snap)  # hope this works
+    snapshot['HELLO']='hi'
+    if 'choices' in snapshot and player_name != snapshot['choices'][0]:
+        del snapshot['choices']
+    for faction in ['leftfaction','rightfaction']:
+        for player in snapshot[faction]['players']:
+            player_info = snapshot[player]
+            if player == player_name:
+                snapshot['mycards'] = (player, player_info['cards'])
+            else:
+                del snapshot[player]['id_num']
+            del player_info['cards']
+    return snapshot
+    
+def full_player_list(snapshot):
+    return snapshot['leftfaction']['players'] + snapshot['rightfaction']['players']
+
+def names_from_ids(mastersnapshot):
+    id_dict = {}
+    for player in full_player_list(mastersnapshot):
+        id_dict[mastersnapshot[player]['id_num']] = player
+    return id_dict
+
 
   ##################  END SNAPSHOT PROCESSING  #############
  ################  START FILE PICKLING  #################
-def file_snap(snapshot, game_id='g0', player_id=-1):
+def file_snap(snapshot, game_id='', player_id=-1):
     if player_id != -1: 
         player_id = str(player_id)
         if player_id.isdigit(): player_id = 'p'+player_id
     else:
         player_id = ''
+    if not game_id:
+        game_id=snapshot['game'][1]
     game_id = str(game_id)
     if game_id.isdigit() : game_id = 'g'+game_id
     archive_file = 'data/'+game_id+player_id+'_archive.pkl'
@@ -258,13 +307,15 @@ def file_recov(game_id='g0'):
     except IOError: snapshot = 0
     return snapshot
 
-def player_snap_files(game):
-    game_id = 'g'+str(game.game_id)
-    for player in game.gameboard['player']:
-        player_id = player.id_num
-        snapshot = game.snapshot(player_id)
-        file_snap(snapshot, game_id, player_id)
-    snapshot = game.snapshot()
+def player_snap_files(snapshot):
+    game_id = 'g'+str(snapshot['game'][1])
+    for faction in ['leftfaction', 'rightfaction']:
+        for player in snapshot[faction]['players']:
+            player_info = snapshot[player]
+            player_id = player_info['id_num']
+            player_snap = player_snap_from_master(snapshot, player)
+            file_snap(player_snap, game_id, player_id)
+    snapshot = player_snap_from_master(snapshot)
     file_snap(snapshot, game_id, 'p0')
  ################  END FILE PICKLING  #################
 

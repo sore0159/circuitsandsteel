@@ -1,8 +1,10 @@
-Python implimentation of Flash Duel/En Garde
+Python implimentation of the board game Flash Duel/En Garde
 Split across several files for readability/editability, not for any functional reason.
 This is a pretty amateur project, you may notice that.  Several very useful functions written halfway through means something works one way at one point and another way at other points!  Exciting.
 The snapshot feature in particular shows how ill suited and unneeded to the game most of the underlying object design in.  A simple set of dictionaries carries all the information the game needs!
 
 No Powers 1v1 and 2v2 basically working
-AI opponents, Web interface to come
+First AI opponent, Little Bobby Tables, is operational!
+More robust AI to come
+Web interface to come
 Dragons and Powers much farther off

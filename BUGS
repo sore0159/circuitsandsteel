@@ -1,5 +1,9 @@
-create_turn_order function needs to be restored
+Games get confused about their game_id if you move their pkl files
+
 ---------------------------------------------------------------------------
+FIXED: Double snapshot for player's turn
+FIXED: Checking 2nd faction time-out last blows can't find enemy_dir if they're all dead (HACK FIX)
+FIXED: create_turn_order function needs to be restored (praise git)
 FIXED: (Mostly) No options at snapshot gen
 FIXED: Always faction1 win the coin flip?
 FIXED: After losing match but before snapshot, last-hit not reset to proper place?
