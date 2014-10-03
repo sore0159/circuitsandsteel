@@ -199,7 +199,11 @@ class Move(Option):
     def __init__(self, owner, mover, card, direction):
         Option.__init__(self, owner)
         self.movement = card.value
-        self.id_string ='m'+direction[0]+str(self.movement)
+        ## trickery ##
+        en_dir = mover.closest_enemy()[1]
+        if direction == en_dir: dir_str = 'f'
+        else: dir_str = 'b'
+        self.id_string =dir_str+str(self.movement)
         owner.choice_ids.append(self.id_string)
         if direction == 'down': self.movement *= -1
         self.mover = mover
@@ -229,7 +233,7 @@ class DashingStrike(Option):
         self.target = target
         self.move_card = move_card
         self.attk_cards = attk_cards
-        self.des =  'Dashing Strike, moving %s %d then attacking ' % ( direction, move_card.value)
+        self.des =  'Dashing Strike, moving forward %d then attacking ' %  move_card.value
         self.id_string ='d'+str(move_card.value)+str(self.distance)*self.strength
         owner.choice_ids.append(self.id_string)
 
@@ -260,11 +264,11 @@ class Push(Option):
         if direction == 'down': self.movement *= -1
         self.card = card
         self.des = 'push'
-        self.id_string ='p'+str(card.value)
+        self.id_string ='s'+str(card.value)
         owner.choice_ids.append(self.id_string)
 
     def pretty_name(self):
-        return "Push tokens adjacent away %d spaces" % self.movement
+        return "Shove tokens adjacent away %d spaces" % self.movement
     def activate(self):
         victims = ''
         push_list = self.target.check('has')[:] # need a copy because mod in action?
@@ -275,7 +279,7 @@ class Push(Option):
         victims = victims[:-2]
         self.card.discard()
         self.check('tray')[0].check('owner')[0].winded = 1
-        return self.actor+' pushed '+victims+' to '+final_loc
+        return self.actor+' shoved '+victims+' to '+final_loc
 
 
   ###################  DEFENSE OPTIONS  ##################
@@ -288,18 +292,18 @@ class Defend(Option):
         self.sub_type = 'relief'
         self.suffering = suffering
         self.cards = blk_cards
-        self.des = 'block'
-        self.id_string = 'b'
+        self.des = 'parry'
+        self.id_string = 'p'
         owner.choice_ids.append(self.id_string)
 
     def pretty_name(self):
-        return "Block the incoming attack"
+        return "Parry the incoming attack"
 
     def activate(self):
         self.interact(self.suffering, self.strength)
         for i in self.cards:
             i.discard()
-        return self.actor+' parried the blow!'
+        return self.actor+' parried the attack!'
 
 class Retreat(Option):
     def __init__(self, owner, suffering, mover, direction, move_card):
@@ -375,7 +379,7 @@ class DashingBlock(Option):
         self.mover = mover
         self.cards += self.victim_cards
         self.des = 'Dashing Block, moving %s %d then adding %d cards valued %d to the block' % (direction, abs(self.movement), self.strength, self.distance)
-        self.id_string = 's'+str(abs(self.movement))+str(self.distance)*self.strength
+        self.id_string = 'i'+str(abs(self.movement))+str(self.distance)*self.strength
         owner.choice_ids.append(self.id_string)
 
 
@@ -392,7 +396,7 @@ class DashingBlock(Option):
             i.discard()
         plural = ''
         if self.strength > 1: plural = 's'
-        return self.actor+' dashes to '+final_loc+' and aids with %d card'%self.strength +plural+'!'
+        return self.actor+' dashes to '+final_loc+' and interposes with %d card'%self.strength +plural+'!'
 
   #################  DENY OPTIONS  ###################
 

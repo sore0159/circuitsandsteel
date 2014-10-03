@@ -1,7 +1,73 @@
 import cPickle as pickle
 import copy
 import random
+from robots import robot_lookup_table
   ##################  START SNAPSHOT GEN  ###############
+def assemble_pref_list(controller_list, game_type):
+    color_list = []
+    name_list = []
+    fac_list = []
+    turn_pref = []
+    fac_turn_pref = []
+    fac1_name_votebooth =[] 
+    fac2_name_votebooth = []
+    i = 0
+    if game_type in [0,2]:
+        fac1_size = 1
+        num_players = 2
+    elif game_type in [1,3]:
+        fac1_size = 2
+        num_players = 4
+    elif game_type in [4,5,6]:
+        fac1_size = game_type - 2
+        num_players = fac1_size + 1
+
+    color_matrix = []
+    for controller in controller_list[:num_players]:
+        player = robot_lookup_table[controller]()
+        i += 1
+        turn_pref.append(player.in_team_pref)
+        fac_turn_pref.append(player.fac_order_pref)
+        if i <= fac1_size:
+            fac1_name_votebooth.append(player.faction)
+        else:
+            fac2_name_votebooth.append(player.faction)
+        temp_color_pref = player.color_pref
+        temp_color_pref = list(set(temp_color_pref))
+        for j in range(len(temp_color_pref)):
+            color = temp_color_pref[j]
+            if not color or color == 'black':
+                temp_color_pref.pop(j)
+        if len(temp_color_pref) >4:
+            temp_color_pref = temp_color_pref[:4]
+        elif len(temp_color_pref) < 4:
+            for color in ['purple', 'red', 'blue', 'green']:
+                if color not in temp_color_pref and len(temp_color_pref)<4:
+                    temp_color_pref.append(color)
+        color_matrix.append(temp_color_pref)
+        for name in [player.name+'I'*num for num in [0,2,3,4,5]]:
+            if name not in name_list:
+                name_list.append(name)
+                break
+    fac_list = [random.choice(fac1_name_votebooth), random.choice(fac2_name_votebooth)]
+    color_list = color_vote(color_matrix) # turn order voting is outsourced already
+    return (color_list, name_list, fac_list, turn_pref, fac_turn_pref)
+
+def color_vote(color_matrix): # 5 x 4 matrix
+    color_list = [0,0,0,0,'black']
+    for vote_num in range(4):
+        vote_dict = {}
+        for p_num in range(min(4, len(color_matrix))): # we don't care what dragon wants
+            if not color_list[p_num]: # if she doesn't have a color
+                color = color_matrix[p_num][vote_num] # pick her ith fav color
+                if color not in vote_dict:
+                    vote_dict[color] = []
+                vote_dict[color].append(p_num)  # she votes for it
+        #after all votes collected
+        for color in vote_dict:
+            color_list[random.choice(vote_dict[color])] = color
+
+    return color_list
 
 def random_gamestart_snapshot(game_type=0, game_id=0, player_list=['human']*5):
     try:
@@ -68,15 +134,18 @@ def random_gamestart_snapshot(game_type=0, game_id=0, player_list=['human']*5):
     random.shuffle(deck)
 
     #############  THINGS NEED TO BE PASSED AS ARGS LATER  ############
-    color_list = ['red', 'blue', 'green', 'yellow']
-    name_list = ['Player One', 'Player Two', 'Player Three', 'Player Four', 'Player Five'] 
-    fac_list = ['The Robo-Jets', 'The Mecha-Sharks']
-    turn_pref= ['mid','mid','mid','mid','mid']
-    fac_turn_pref = ['first', 'first', 'first', 'first', 'first' ]
-    turn_pref = turn_pref[:num_players]
-    fac_turn_pref = fac_turn_pref[:num_players]
-    #  player_list = ['human']*5 from above
+    # assemble_pref_list(contr_list, game_type)
+    # (color_list, name_list, fac_list, turn_pref, fac_turn_pref)
+    #color_list = ['red', 'blue', 'green', 'yellow']
+    #name_list = ['Player One', 'Player Two', 'Player Three', 'Player Four', 'Player Five'] 
+    #fac_list = ['The Robo-Jets', 'The Mecha-Sharks']
+    #turn_pref= ['mid','mid','mid','mid','mid']
+    #fac_turn_pref = ['first', 'first', 'first', 'first', 'first' ]
+    #turn_pref = turn_pref[:num_players]
+    #fac_turn_pref = fac_turn_pref[:num_players]
+    #  player_list = strings of controller names
     controller_list = player_list
+    color_list, name_list, fac_list, turn_pref, fac_turn_pref = assemble_pref_list(controller_list, game_type)
     #############  END THINGS TO BE PASSED AS ARGS LATER  ############
     ##############  FACTIONS  ##############
     snapshot['leftfaction'] = {'name':fac_list[0], 'score':0, 'players':[]}
@@ -178,12 +247,12 @@ def inter_turn_order(pref_list):
     turns = []
     for i in range(len(pref_list)):
         x = pref_list[i]
-        if x == 'mid':
-            sorted_turns[1].append(i)
+        if x == 'last':
+            sorted_turns[2].append(i)
         elif x == 'first':
             sorted_turns[0].append(i)
         else:
-            sorted_turns[2].append(i)
+            sorted_turns[1].append(i)
     for i in range(3):
         random.shuffle(sorted_turns[i])
         turns += sorted_turns[i]
@@ -206,7 +275,7 @@ def choices_from_snapshot(snapshot):
     #move
     for card in range(1,6):
         if card_count[card]:
-            choices.extend(['mu%d'%card, 'md%d'%card])
+            choices.extend(['f%d'%card, 'b%d'%card])
     #push
     #attack
     #dashing strike
@@ -282,28 +351,28 @@ def file_snap(snapshot, game_id='', player_id=-1):
     game_id = str(game_id)
     if game_id.isdigit() : game_id = 'g'+game_id
     archive_file = 'data/'+game_id+player_id+'_archive.pkl'
-    print "Reading File: " + archive_file
+    #print "Reading File: " + archive_file
     try:
         check2_file = open(archive_file, 'rb')
         archive_list = pickle.load(check2_file)
         check2_file.close()
-        print "File Read!"
+        #print "File Read!"
     except IOError:
         archive_list = []
     archive_list.append(snapshot)
-    print "Writing File: " + archive_file
+    #print "Writing File: " + archive_file
     log_file = open(archive_file, 'wb')
     pickle.dump(archive_list, log_file, -1)
     log_file.close()
 
 def file_recov(game_id='g0'):
     archive_file = 'data/'+str(game_id)+'_archive.pkl'
-    print "Reading File: " + archive_file
+    #print "Reading File: " + archive_file
     try:
         snap_file = open(archive_file, 'rb')
         snapshot_list = pickle.load(snap_file)
         snapshot = snapshot_list[-1]
-        print "File Read!"
+        #print "File Read!"
     except IOError: snapshot = 0
     return snapshot
 
@@ -317,5 +386,9 @@ def player_snap_files(snapshot):
             file_snap(player_snap, game_id, player_id)
     snapshot = player_snap_from_master(snapshot)
     file_snap(snapshot, game_id, 'p0')
+
+def complete_archive(snapshot):
+    file_snap(snapshot)
+    player_snap_files(snapshot)
  ################  END FILE PICKLING  #################
 

@@ -769,5 +769,13 @@ class Game(Linker):
 
 ####################END CONTROL CLASSES#####################
 
+  ##############  BEGIN LAST CLAIM TO RELEVANCE  ###############
+def make_choice(snapshot, choice):
+    table = Game()
+    table.spawn_from_snapshot(snapshot)
+    table.make_choice(choice)
+    snapshot = table.master_snapshot()
+    return snapshot
 
+  ##############  END LAST CLAIM TO RELEVANCE  ###############
 

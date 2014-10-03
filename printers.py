@@ -181,6 +181,7 @@ def print_from_snapshot(snapshot):
     # choices available
     #print_str += snapshot['choices']
     if 'choices' in snapshot:
+        snapshot['choices'][1].sort()
         print_str += snapshot['choices'][0]+"'s Options:\n"
         print_str += str(snapshot['choices'][1])+'\n'
     return print_str
@@ -190,8 +191,10 @@ def distance_str(snapshot, player_name):
     enemy_spots = []
     if player_name in snapshot['leftfaction']['players']:
         rival = 'rightfaction'
+        dir_strs = ('f','b')
     else:
         rival = 'leftfaction'
+        dir_strs = ('b','b')
     for player in snapshot[rival]['players']:
         spot = snapshot[player]['spot']
         if spot and spot not in enemy_spots:
@@ -207,9 +210,9 @@ def distance_str(snapshot, player_name):
                 d_string = str(dist)
         else:
             if 10 > dist > 0:
-                d_string = 'd'+str(dist)
+                d_string = dir_strs[0]+str(dist)
             elif -10 < dist < 0:
-                d_string = 'u'+str(abs(dist))
+                d_string = dir_strs[1] +str(abs(dist))
             else:
                 d_string = '  '
         counter_str += d_string+' '
