@@ -1,4 +1,26 @@
 
+     ================  CIRCUITS AND STEEL  ================
+     Humans Rule                       Ridgeview Elementary
+     0                     ==VERSUS==                     0
+                                                           
+                                                           
+                                                           
+     @/          @/                      \@             \@ 
+     XX XX ^^ ^^ XX XX ^^ ^^ XX XX ^^ ^^ XX XX ^^ ^^ XX XX 
+        f1 f2 f3 f4 f5 f6 f7 f8 f9       12             17 
+     ------------------------------------------------------
+     Discard Pile: 1x0 2x0 3x0 4x1 5x1
+     Turn Order: RO, LI, >P1<, RO             28 Cards Left
+     P1:5 2 4 4 1                              5 4 4 1 5:RO
+     RO:3 4 3 4 1                              3 3 5 2 1:LI
+     Game Start, Two Vs Two
+     Turn Order Set: Roomba, Little Bobby Tables, Player One, Robot Chicken
+     f4:Roomba moved to a dark square numbered 5
+     f5:Little Bobby Tables moved to a dark square numbered 13
+     Player One's Options:
+     ['b1', 'b2', 'b4', 'b5', 'f1', 'f2', 'f4', 'f5']
+     
+
 ===================  CIRCUITS AND STEEL  ==================
 Python implimentation of the board game Flash Duel/En Garde
 Usage:
@@ -8,7 +30,7 @@ optional gNUM argument creates/loads a game of id NUM; without a game ID 0 is cr
 
 Optional argument extension pNUM can follow a gNUM arg with no space, and will view the selected game from the veiw of the player with id NUM: if no such player exists a public veiw will be shown.  At present this doesn't interfere with making choices even if it's not the turn of your veiwpoint.
 
-Optional CHOICE argument will attempt to have the current player make the selected choice.  No error for an invalid choice at present, just nothing happens.  CHOICE is the exact string presented in the option list.
+Optional CHOICE argument will attempt to have the current player make the selected choice.  No error for an invalid choice at present, just nothing happens.  CHOICE is the exact string presented in the option list.  See GAMERULES for option descriptions.
 
 Example:
 python run.py g10p12 d522

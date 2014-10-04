@@ -1,10 +1,11 @@
 import random
 #from snapshots import complete_archive, player_snap_from_master
+import printers
 import snapshots  # robot_control function uses these
 from game import make_choice
 
    ###################  BEGIN ROBOT INTERFACE PROTOCOL  ##################
-def robot_control(snapshot):
+def robot_control(snapshot, flag=''):
     if 'choices' in snapshot:
         controller = snapshot[snapshot['choices'][0]]['controller']
     else:
@@ -19,6 +20,7 @@ def robot_control(snapshot):
             print "%s CHOICE: %s"%(robot_name, robot_choice)
             snapshot = make_choice(snapshot, robot_choice)
             snapshots.complete_archive(snapshot)
+            if flag: print printers.print_from_snapshot(snapshot)
             if 'choices' in snapshot:
                 controller = snapshot[snapshot['choices'][0]]['controller']
             else:
@@ -26,7 +28,7 @@ def robot_control(snapshot):
         else:
             print '\n+++++\n'+controller+'\n++++++\n'
             raise Exception # Bad Robot Type
-    print "LAST CONTROLLER: ", controller
+    print "CONTROLLER: ", controller
     return snapshot
    ###################  END ROBOT INTERFACE PROTOCOL  ##################
 
@@ -98,8 +100,8 @@ def non_dumb(snapshot):
             for choice in opts:
                 if choice[0] == 'b':
                     bad_choices.append(choice)
-        print "Bad choices: ", bad_choices
-        print "Considering: ", list( set(opts) ^ set(bad_choices))
+        #print "Bad choices: ", bad_choices
+        #print "Considering: ", list( set(opts) ^ set(bad_choices))
         return list( set(opts) ^ set(bad_choices))
     else:
         return opts
@@ -111,7 +113,7 @@ def am_i_adj_en(snapshot):
     if my_name in snapshot['leftfaction']['players']: en_faction = 'rightfaction'
     check = 0
     for enemy in snapshot[en_faction]['players']:
-        if abs(snapshot[enemy]['spot'] - my_spot) == 1:
+        if snapshot[enemy]['spot'] and abs(snapshot[enemy]['spot'] - my_spot) == 1:
             check = 1
     return check
 
@@ -195,6 +197,12 @@ class Robot(object):
     def default_cry(self, snapshot, opts_d):
         # cry respond choices = ['x', 'i']
         return random.choice(non_dumb(snapshot))
+
+    def forder_vote(self, snapshot):
+        return self.fac_order_preference
+
+    def torder_vote(self, snapshot):
+        return self.in_team_pref
 
   ####################  END STOCK ROBOT  ####################
 
@@ -326,6 +334,11 @@ class Human(object):   # need something for prefs, maybe user form fillout later
         self.fac_order_pref = 'first'
         self.in_team_pref = 'mid'
         self.color_pref = ['purple', 'red', 'blue', 'green', 'yellow']
+    def forder_vote(self, snapshot):
+        return self.fac_order_preference
+
+    def torder_vote(self, snapshot):
+        return self.in_team_pref
 
 
 robot_lookup_table = {'human':Human,'LittleBobby':LittleBobby, 'RobotChicken':RobotChicken, 'BadRobot':BadRobot, 'Rockem':Rockem, 'Sockem':Sockem, 'Bender':Bender, 'Roomba':Roomba, 'EyeRobot':EyeRobot}

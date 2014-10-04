@@ -1,0 +1,29 @@
+En Garde and Flash Duel's rules can be found online.
+
+Options:
+    "Action" Options: ['a', 's', 'b', 'f', 'd']
+    "Defense" Options: ['p', 'r', 'c', 't']
+    "Reponse" Options: ['i', 'x']
+
+Actions: ['a', 's', 'b', 'f', 'd']
+    Actions are available to a player at the start of their turn.
+    aX[X...] : Attack all opponents on the square X away from you.  The more cards the stronger the attack.
+    sX : Shove all opponents adjacent to you away X spaces.
+    fX : Move Forward X spaces, stopping if you ever are adjacent to an enemy.
+    bX : Move Backwards X spaces, stopping if you reach the board edge.
+    dXY[Y...] : Dash forward X spaces, stopping if you are ever adjacent to an enemy, then striking at all opponents in the square Y away from you.  The more cards the stronger the attack.
+
+Defense: ['p', 'r', 'c', 't']
+    Defense options are available when under attack.
+    p : Parry the attack or dashing strike, discarding cards equal to the strike.
+    rX : Retreat away X spaces from an enemy dashing strike, causing you to be winded an unable to take actions on your next turn.
+    cX[X...] : Call for aid from a teammate, requesting cards X[X...]
+    t : Take the hit, removing yourself from the match.
+
+Response: ['i', 'x']
+    Response options are available when a teammate calls for aid.
+    iXY[Y...] : Intercede, dashing X forward (if X is 0 no card is used for this) and defending your ally with your Y[Y...] cards.
+    x : Deny your teammate's call for aid.
+
+
+

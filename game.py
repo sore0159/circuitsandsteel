@@ -521,7 +521,7 @@ class Game(Linker):
         for i in self.gameboard['faction']:
             fac_tokens.append({})
             for j in i.check('connected'): #players
-                if j.type_string == 'player':
+                if j.type_string == 'player' and j.status:
                     cards = j.check('has')[0].check('connected') 
                     token = j.check('owns')[0]
                     t_space = token.check('at')[0]
@@ -618,11 +618,14 @@ class Game(Linker):
 
     def make_choice(self, choice):
         if choice in self.next_tray.choice_ids:
+            print "RESOLVING CHOICE ", choice
             self.log(choice+':'+self.next_tray.resolve(choice))
             self.gameboard['tray'].remove(self.next_tray)
             self.next_tray = 0
             for token in self.gameboard['token']:
+                print "TOKEN CHECK: ", token.pretty_name(), token.status
                 owner = token.check('owned')[0]
+                print "OWNER CHECK: ", owner.pretty_name()
                 if token.status == 0:
                     self.gameboard['token'].remove(token)
                     self.gameboard['deadtoken'].append(token)

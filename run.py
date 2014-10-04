@@ -11,6 +11,16 @@ possible_choices =['r', 'a', 'd', 'b', 't', 'x', 'p', 'c', 's', 'i', 'f']
 game_id = ''
 player_id = None
 choice = None
+robot = ''
+player_list = ['human']+robots.random_robots(4)
+try:
+    if argv[1] == 'robots':
+        game_id = 'g2714'
+        robot = "ON"
+        player_list = robots.random_robots(4)
+        argv = ['1']
+except:
+    pass
 for arg in argv[1:]:
     if arg[0] == 'g':
         if game_id:
@@ -48,7 +58,6 @@ else:
 snap = file_recov(game_id)
 check = 0
 if not snap:
-    player_list = ['human']+robots.random_robots(4)
     snap = random_gamestart_snapshot(game_type, game_id, player_list)
     check = 1
 snap['game'] = snap['game'][0], int(game_id[1:])  # update game_id in case
@@ -57,8 +66,9 @@ if check:
     complete_archive(snap)
 elif 'choices' in snap and choice:
     snap= make_choice(snap, choice)
+    complete_archive(snap)
 
-snap = robots.robot_control(snap)
+snap = robots.robot_control(snap, robot)
 if player_id:
     snap = player_snap_from_master(snap, player_id)
 

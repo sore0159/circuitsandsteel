@@ -30,7 +30,7 @@ class Token(Linker):
         return 1
 
     def die(self):
-        self.check('owned')[0].discard_hand()
+        self.check('owned')[0].die(1)
         self.drop_genus('at', 'has')
         self.status = 0
         self.drop_genus()

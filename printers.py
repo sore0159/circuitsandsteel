@@ -12,8 +12,15 @@ def abrev(name):
 def print_from_snapshot(snapshot):
     print_str = ''
     width = 54
+    l_pad = '\n'+' '*5
+    print_str += l_pad
     #decorative border
-    print_str += '='*width+'\n'
+    game_name = 'CIRCUITS AND STEEL'
+    deco_len = (width-len(game_name))/2
+    side_deco = '='*(deco_len-2)
+    half_pad = ''+'='*((width-len(game_name))%2)
+    deco_str = side_deco+half_pad+'  '+game_name+'  '+side_deco
+    print_str += deco_str+l_pad
     #factions
     leftname = snapshot['leftfaction']['name']
     leftscore = str(snapshot['leftfaction']['score'])
@@ -22,7 +29,7 @@ def print_from_snapshot(snapshot):
     gap = width /2 - 7
     if len(leftname) >gap : leftname = leftname[:gap]
     if len(rightname) > gap: rightname = rightname[:gap]
-    print_str += leftname+' '*(width-len(leftname+rightname))+rightname+'\n'
+    print_str += leftname+' '*(width-len(leftname+rightname))+rightname+l_pad
     #score and VERSUS decoration
     deco = '==VERSUS=='
     padding = width -2 - len(deco) # scores each always have len 1
@@ -30,7 +37,7 @@ def print_from_snapshot(snapshot):
     if padding % 2: padding = ' '
     else: padding = ''
     score_str = leftscore+' '*half_pad+padding+deco+' '*half_pad+rightscore
-    print_str += score_str + '\n'
+    print_str += score_str + l_pad
 
     #tokens
         #card prep while we're here: righthands lefthands for later
@@ -44,13 +51,15 @@ def print_from_snapshot(snapshot):
             if spot not in tokenspots:
                 tokenspots[spot] = []
             char_string = '@/ '
+            if player_info['winded'] and player_name != snapshot['whosturn']:
+                char_string = char_string[:1]+' '+char_string[2:]
             if 'imp' in snapshot:
                 for suffering in snapshot['imp']:
                     if player_name == suffering['victim']:
                         if suffering['type'] == 'cry':
                             char_string = char_string[:-1]+'?'
                         else:
-                            char_string = '@!'+char_string[-1]
+                            char_string = '!'+char_string[1:]
             tokenspots[spot].append(char_string)
         else: spot = None
         #card prep
@@ -74,13 +83,15 @@ def print_from_snapshot(snapshot):
             if spot not in tokenspots:
                 tokenspots[spot] = []
             char_string = '\\@ '
+            if player_info['winded'] and player_name != snapshot['whosturn']:
+                char_string = ' '+char_string[1:]
             if 'imp' in snapshot:
                 for suffering in snapshot['imp']:
                     if player_name == suffering['victim']:
                         if suffering['type'] == 'cry':
                             char_string = char_string[:-1]+'?'
                         else:
-                            char_string = '!@'+char_string[-1]
+                            char_string = char_string[0]+'!'+char_string[-1]
             tokenspots[spot].append(char_string)
         else: spot = None
         #card info
@@ -113,11 +124,11 @@ def print_from_snapshot(snapshot):
             except KeyError:
                 full_lines[j] += '   '
     for i in range(1,5):
-        print_str += full_lines[-i]+'\n'
+        print_str += full_lines[-i]+l_pad
     #bridge
     bridge_str = 'XX XX ^^ ^^ '*5
     bridge_str = bridge_str[:-6]
-    print_str += bridge_str +'\n'
+    print_str += bridge_str +l_pad
     #distance counter
     if 'choices' in snapshot:
         dist_line = distance_str(snapshot, snapshot['choices'][0])
@@ -125,10 +136,10 @@ def print_from_snapshot(snapshot):
         dist_line = distance_str(snapshot, snapshot['mycards'][0])
     else:
         dist_line = ' '*width
-    print_str += dist_line+'\n'
+    print_str += dist_line+l_pad
 
     #decorative divider
-    print_str += '-'*width+'\n'
+    print_str += '-'*width+l_pad
     #graveyard
     grave = snapshot['grave']
     count = [None,0,0,0,0,0]
@@ -139,7 +150,7 @@ def print_from_snapshot(snapshot):
         grave_str += ' '+str(num)+'x'
         if max(count)>9 and count[num]<10: grave_str += '0'
         grave_str += str(count[num])
-    print_str += grave_str + '\n'
+    print_str += grave_str + l_pad
     #deck count, turn order
         #deck
     deck = snapshot['deck']
@@ -159,7 +170,7 @@ def print_from_snapshot(snapshot):
     if turn_str: turn_str = turn_str[:-2]
         #all together now
     deck_line = turn_str +' '*(width - len (deck_count+turn_str))+ deck_count
-    print_str += deck_line+'\n'
+    print_str += deck_line+l_pad
     # player hands: count or reveal if master
         # lefthands and righthands from above
     card_line = ['', '']
@@ -173,17 +184,17 @@ def print_from_snapshot(snapshot):
         except IndexError:
             card_line[1] = ''
         if card_line[0] or card_line[1]: 
-            print_str += card_line[0]+ ' '*(width -len(card_line[0]+card_line[1]))+card_line[1]+'\n'
+            print_str += card_line[0]+ ' '*(width -len(card_line[0]+card_line[1]))+card_line[1]+l_pad
     #log
     for i in range(5):
         if 5-i <= len(snapshot['log']):
-            print_str += snapshot['log'][-5+i]+'\n'
+            print_str += snapshot['log'][-5+i]+l_pad
     # choices available
     #print_str += snapshot['choices']
     if 'choices' in snapshot:
         snapshot['choices'][1].sort()
-        print_str += snapshot['choices'][0]+"'s Options:\n"
-        print_str += str(snapshot['choices'][1])+'\n'
+        print_str += snapshot['choices'][0]+"'s Options:"+l_pad
+        print_str += str(snapshot['choices'][1])+l_pad
     return print_str
 
 def distance_str(snapshot, player_name):

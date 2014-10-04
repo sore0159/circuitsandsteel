@@ -1,6 +1,7 @@
-Games get confused about their game_id if you move their pkl files
-
+Tokens not aligning with players!  g23_archive has example, bobby doesn't die right
+Maybe winded status getting lost sometimes?  Keep an eye on it.
 ---------------------------------------------------------------------------
+FIXED: Games get confused about their game_id if you move their pkl files
 FIXED: Double snapshot for player's turn
 FIXED: Checking 2nd faction time-out last blows can't find enemy_dir if they're all dead (HACK FIX)
 FIXED: create_turn_order function needs to be restored (praise git)

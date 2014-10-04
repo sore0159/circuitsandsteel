@@ -75,6 +75,10 @@ class Player(Location):
     def score(self):
         return self.check()[0].points
 
+    def die(self, flag=''):
+        self.discard_hand()
+        self.status = 0
+
     def interact(self, other, kind=0):
         x = other.type_string
         if x == 'hand':

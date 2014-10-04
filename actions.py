@@ -323,7 +323,9 @@ class Retreat(Option):
         return self.des
 
     def activate(self):
-        self.check('tray')[0].check('owner')[0].winded = 1
+        actor = self.check('tray')[0].check('owner')[0]
+        actor.winded = 1
+        #print actor.pretty_name(), 'IS WINDED'  # keep an eye on this
         self.interact(self.suffering)
         self.interact(self.mover)
         self.card.discard()
@@ -429,8 +431,11 @@ class TakeTheHit(Option):
 
     def pretty_name(self):
         return "Take the Hit"
+
     def activate(self):
+        print "TAKING HIT:", self.target.pretty_name(), self.target.status,
         self.target.take_hit()
+        print self.target.status
         self.interact(self.suffering)
         return self.actor + ' takes the blow!'
 
