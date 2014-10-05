@@ -1,784 +1,1001 @@
-from linker import Linker, Location
-from cards import Card, Hand, GraveYard, Deck
-from board import Token, GameSpace
-from others import Player, Faction
-from actions import Suffering, Attack, Defend, DashingStrike, OptionTray, Move, Push, Retreat, RequestDashingAid, DashingBlock, DenyAid, TakeTheHit
+import cPickle as pickle
+import copy
 import random
-
-###################CONTROL CLASSES#####################
-
-class Game(Linker):
-    def __init__(self):
-        self.gameboard = {}
-        self.public_info = []
-        self.turn_order = []
-        self.game_type = 0
-        self.whos_turn = 0
-        self.next_tray = 0
-        self.winner = 0
-        self.game_log = []
-        self.game_id = 0
-
-###############OBJECT REGISTRATION ACT##############
-#also internal investigations
-
-    def register(self, obj):
-        x = obj.type_string
-        if x not in self.gameboard:
-            self.gameboard[x] = []
-        self.gameboard[x].append(obj)
-        if obj not in self.public_info and getattr(obj, 'public', 0):
-            self.public_info.append(obj)
-        return obj
-
-    def deregister(self, obj):
-        x = obj.type_string
-        if x in self.gameboard:
-            self.gameboard[x].remove(obj)
+from robots import robot_lookup_table
+import printers
 
 
-    def spaces(self):
-        if 'gamespace' not in self.gameboard:
-            self.gameboard['gamespace'] = []
-        if len(self.gameboard['gamespace']) > 18:
-            raise Error #Only 18 spaces in this game
-        return self.gameboard['gamespace']
+  ##################  START SNAPSHOT GEN  ###############
+######################## START GAME ASSEMBLY ############################
+def assemble_game(player_list=['human']*5, game_type=0, game_id=0 ):
+    #########  START ARGUMENT SCRUBBING  #########
+    game_id = str(game_id)
+    if game_id[0] == 'g':
+        game_id = game_id[1:]
+    try:
+        game_id = int(game_id)
+    except:
+        game_id = 0
 
-    def deck(self):
-        if 'deck' not in self.gameboard:
-            self.gameboard['deck'] = []
-        if len(self.gameboard['deck']) > 1:
-            raise Error #Only one deck in this game
-        return self.gameboard['deck'][0]
+    try:
+        game_type = int(game_type)
+    except:
+        game_type = 0
+    for player in player_list[:]:
+        if player not in robot_lookup_table:
+            player_list.remove(player)
+    while len(player_list) < 5:
+        player_list.append('human')
+    #########  END ARGUMENT SCRUBBING  #########
+    snapshot = {'game':(game_type, game_id)}
+    # Game log
+    logstrings = [
+        'One Vs One',
+        'Two Vs Two',
+        'One Vs One, With Powers',
+        'Two Vs Two, With Powers',
+        'Two Vs DRAGON',
+        'Three Vs DRAGON',
+        'Four Vs DRAGON' ]
+    game_log = ['Game Created: '+ logstrings[game_type]]
+    snapshot['log'] = game_log
 
-    def veiw(self, player):
-        return self.public_info + player.private_info()
+    # How many players
+    if game_type in [0,2]: num_players = 2
+    elif game_type in [1,3]: num_players = 4
+    else: num_players = game_type -1
+    # what are the factions?
+    if game_type in [1,3]: fac1_size = num_players -2
+    else: fac1_size = num_players -1
+    # is there a dragon?
+    if game_type in [4,5,6]: dragon = 1
+    else: dragon = 0 
+    # are there powers?  HAH
+    if game_type in [0,1]: powers = 0
+    else: powers = 1
 
-    def is_game_over(self):   # 0 game on  1 time_out   fac_obj: winner!
-        winner = 0
-        for i in self.gameboard['faction']:
-            alive = 0
-            for j in i.check('connected'): #players
-                if j.type_string == 'token':
-                    alive += j.stat()
-            if not alive: winner = i.check('rival')[0]
-        if not winner:
-            if not self.deck().cycles and not self.deck().top_card():
-                return 1
-            else:
-                return 0
-        else:
-            return winner
-
-    def log(self, text):
-        self.game_log.append(text)
-
-    def read_log(self):
-        return self.game_log
-
-    def snapshot(self, player_id=0):
-        this_player = 0
-        suff_dict_list = []
-        suff_list =[]
-        for player in self.gameboard['player']:
-            suff_list += player.check('suffering')
-        for suff in suff_list:
-            suff_dict = {'type': suff.suf_type, 'can_call':suff.can_call_for_aid , 'source':0 , 'victim':suff.check('player')[0].pretty_name() , 'amount': suff.amount, 'distance':suff.distance , 'cards': [card.value for card in suff.victim_cards]
-                    }
-            if suff.suf_type == 'cry':
-                suff_dict['source'] = suff.source_player().pretty_name()
-            suff_dict_list.append(suff_dict)
-        if self.next_tray:
-            choice_tuple = (self.next_tray.check('owner')[0].pretty_name(),
-                    self.next_tray.choice_ids
-                    )
-        else: choice_tuple = (0,0)
-
-        snapshot = {
-                'log': self.game_log,
-                'turnorder':[player.pretty_name() for player in self.turn_order], 
-                'whosturn': self.whos_turn.pretty_name() ,
-                'imp':suff_dict_list,
-                'deck': (len(self.gameboard['deck'][0].check()), self.gameboard['deck'][0].cycles),
-                'grave': [card.value for card in self.gameboard['graveyard'][0].check()]
-                }
-        en_dir = 'down'
-        for faction in self.gameboard['faction']:
-            points = faction.points
-            name = faction.pretty_name()
-            players = [player.pretty_name() for player in faction.players()]
-            if en_dir == 'down':
-                snapshot['leftfaction'] = {'name':name, 'score':points, 'players':players}
-            elif en_dir == 'up':
-                snapshot['rightfaction'] = {'name':name, 'score':points, 'players':players}
-            en_dir = 'up'
-
-        for player in self.gameboard['player']:
-            player_name = player.pretty_name()
-            while player_name in snapshot or player_name in ['choices', 'game', 'mycards']:
-                #player_name += random.randint(0,9)
-                    #can't because faction link, turnorder link =/
-                raise Exception #Bad Player Name
-            snapshot[player_name] = {'dragon':player.is_dragon(), 'num_cards':len(player.cards()), 'spot':player.token_spot_val(), 'health':player.stat(), 'winded':player.winded, 'faction':player.check()[0].pretty_name(), 'score':player.score(), 'color':player.check('owns')[0].color(), 'controller':player.controller}
-            if player_id == player.id_num:
-                this_player = player
-        if this_player:
-            snapshot['mycards'] = (this_player.pretty_name(), [card.value for card in this_player.cards()])
-            if this_player.pretty_name() == choice_tuple[0]:
-                snapshot['choices'] = choice_tuple
-        return snapshot
-
-    def master_snapshot(self):
-        snapshot = self.snapshot()
-        for player in self.gameboard['player']:
-            player_cards = [card.value for card in player.cards()]
-            snapshot[player.pretty_name()]['cards'] = player_cards
-            snapshot[player.pretty_name()]['id_num'] = player.id_num
-        snapshot['deck'] = ([card.value for card in self.gameboard['deck'][0].check()], self.gameboard['deck'][0].cycles)
-        snapshot['game'] = (self.game_type, self.game_id)
-        if self.next_tray:
-            choice_tuple = (self.next_tray.check('owner')[0].pretty_name(),
-                    self.next_tray.choice_ids
-                    )
-            snapshot['choices'] = choice_tuple
-        return snapshot
-
-
-##############END OBJECT REGISTRATION ACT###########
-#############CREATE GAME###############
-
-    def spawn_from_snapshot(self, snapshot):
-        self.game_id = snapshot['game'][1]
-        self.game_type = snapshot['game'][0]
-        self.game_log = snapshot['log']
-        self.gameboard = {}
-
-        ##############GAME BOARD#############
-        # always the same
-        x = 'dark'
-        for i in range(9):
-            y = self.register(GameSpace(x))
-            z = self.register(GameSpace(x))
-            y.des = str(2*i+1)
-            z.des = str(2*i+2)
-            if x == 'dark':
-                x = 'light' 
-            else:
-                x = 'dark'
-
-        for i in range(len(self.spaces())-1):
-            self.spaces()[i].interact(self.spaces()[i+1])
-
-        ############FACTIONS#################
-
-        fac1_name = snapshot['leftfaction']['name']
-        fac1_score = snapshot['leftfaction']['score']
-        fac2_name = snapshot['rightfaction']['name']
-        fac2_score = snapshot['rightfaction']['score']
-        fac1 = self.register(Faction(fac1_name))
-        fac1.points = fac1_score
-        fac2 = self.register(Faction(fac2_name))
-        fac2.points = fac2_score
-        fac1.link(fac2, 'rival')
-
-        ##############CARD GRAVEYARD############## 
-        grave = self.register(GraveYard())
-        self.gameboard['deadtoken'] = []
-        for card_val in snapshot['grave']:
-            grave.interact(self.register(Card(grave, card_val)))
-        ##############CARD DECK############## 
-        deck = self.register(Deck(grave, snapshot['deck'][1]))
-        for card_val in snapshot['deck'][0]:
-            deck.interact(self.register(Card(grave, card_val)))
-        deck.shuffle()
-
-        ############PLAYERS##################
-        ##############TOKENS#################
-        #############HHANDS###################
-        #fac1_name
-        for fac_string in ['leftfaction', 'rightfaction']: 
-            for player_name in snapshot[fac_string]['players']:
-                player_info = snapshot[player_name]
-                x = self.register(Player(self.game_id, player_info['id_num'], player_name))
-                self.turn_order.append(x)
-                x.winded = player_info['winded']
-                x.status = player_info['health']
-                x.dragon = player_info['dragon']
-                x.controller = player_info['controller']
-                token = self.register(Token(player_info['color']))
-                x.interact(token)
-                token.status = x.status
-                token.winded = x.winded
-                token.dragon = x.dragon
-
-                if fac_string == 'leftfaction':
-                    x.interact(fac1)
-                else:
-                    x.interact(fac2)
-                p_hand = self.register(Hand())
-                x.interact(p_hand)
-                if(token.status >0):
-                    gamespot = self.gameboard['gamespace'][player_info['spot']-1]
-                    gamespot.interact(token)
-                    token.interact(x.check()[0])
-                    player_info['token'] = token
-                    player_info['gamespot'] = gamespot
-                for card_val in player_info['cards']:
-                    card = self.register(Card(grave, card_val))
-                    p_hand.interact(card)
-                player_info['object'] = x
-                player_info['hand'] = p_hand
-        self.turn_order = []
-        for player in snapshot['turnorder']:
-            self.turn_order.append(snapshot[player]['object'])
-        self.whos_turn = snapshot[snapshot['whosturn']]['object']
-
-    ############ ACTION TRAY ############
-        if not self.is_game_over():
-            cries = []
-            not_cries = []
-            try:
-                impending = snapshot['imp']
-            except:
-                impending = []
-            #impending = getattr(snapshot, 'imp', [])
-            for suffering in impending:
-                if suffering['type'] == 'cry':
-                    cries.append(suffering)
-                else:
-                    not_cries.append(suffering)
-            for suffering in not_cries:
-                suf_obj = self.gen_suff_from_snap(suffering, snapshot)
-                snapshot[suffering['victim']]['suffering'] = suf_obj
-            for suffering in cries:
-                suf_obj = self.gen_suff_from_snap(suffering, snapshot)
-                suf_obj.interact(snapshot[suffering['source']]['suffering'])
-            if not impending:
-                self.next_tray = self.make_action_tray(self.whos_turn)
-            else:
-                self.update_next_tray()
-        else:
-            self.next_tray = 0
-
-
-    def gen_suff_from_snap(self, suffering, snapshot):
-        victim = suffering['victim']
-        source = suffering['source']
-        token = snapshot[victim]['token']
-        p_obj = snapshot[victim]['object']
-        if source:
-            source_obj = snapshot[source]['object']
-            source_hand = snapshot[source]['hand']
-        victim_cards = []
-        if suffering['cards']:
-            cards = source_hand.check()[:]
-            for card_val in suffering['cards']:
-                for card in cards:
-                    if card.value == card_val and len(victim_cards) < len(suffering['cards']):
-                        cards.remove(card)
-                        victim_cards.append(card)
-
-        suf_obj = Suffering(token, p_obj, suffering['type'],suffering['amount'],  suffering['distance'], victim_cards)
-        suf_obj.can_call_for_aid = suffering['can_call']
-        return suf_obj
-
-
-    #############DRAGON##################
-    ###############TRAITOR###############
-    ################POWERS###############
-
-    #                TBI                # 
+    # Okay let's create player dictionaries
+    players = []
+    for i in range(num_players):
+        players.append({'controller':player_list[i]})
+    # vote on names
+    name_vote(players)
+    # vote on colors
+    color_vote(players)
+    # assign rand IDs
+    id_list = [0]
+    for i in range(len(players)):
+        rand_num = 0
+        while rand_num in id_list:
+            rand_num = random.randint(10,99)
+        id_list.append(rand_num)
+        players[i]['id_num'] = rand_num
         
-###########END CREATE GAME#############
+    # assign l/r faction (also dragon setting)
+    random.shuffle(players)
+    snapshot['leftfaction'] = {'name':'templeft', 'score':0, 'players':[]}
+    snapshot['rightfaction'] = {'name':'tempright', 'score':0, 'players':[]}
+    for player in players[:fac1_size]:
+        snapshot['leftfaction']['players'].append(player['name'])
+        player['dragon']=0
+    for player in players[fac1_size:]:
+        snapshot['rightfaction']['players'].append(player['name'])
+        if dragon: 
+            player['dragon']=1
+            player['color'] = 'black'
+        else: player['dragon']=0
+    # put player dictionaries in the snapshot
+    for player in players:
+        player['num_cards'] = 0
+        player['health'] = 0
+        player['winded'] = 0
+        player['cards'] = []
+        player['spot'] = None
+        snapshot[player['name']] = player
+        del player['name']
 
-  #################  START TRAY CONSTRUCTION  ##################
-
-    def make_action_tray(self, player):
-        #move attack push dashing strike
-        tray = self.register(OptionTray(player))
-        p_token = player.check('owns')[0]
-        p_token_space = p_token.check('at')[0]
-        cards = player.check('has')[0].check('connected')
-        unique_cards = {}
-        for i in cards:
-            if i.value not in unique_cards: unique_cards[i.value] =[]
-            unique_cards[i.value].append(i)
-        rival_tokens = []
-        for i in player.check('connected')[0].check('rival')[0].check('connected'):
-            if i.type_string == 'token':
-                rival_tokens.append(i)
-        #okay fine let's figure out what direction the enemy is
-        enemy_direction = p_token.closest_enemy()[1]
-        for i in unique_cards:
-            #Move
-            Move(tray, p_token, unique_cards[i][0], 'up')
-            Move(tray, p_token, unique_cards[i][0], 'down')
-            #Attack
-            x = p_token_space.count(i, enemy_direction)
-            if x:
-                if set( x.check('has')) & set( rival_tokens):
-                    for j in range(1, len(unique_cards[i])+1):
-                        Attack(tray, x, unique_cards[i][:j])
-            #Push
-            x = p_token_space.count(1, enemy_direction)
-            if x and x.count(1, enemy_direction):
-                if set( x.check('has')) & set( rival_tokens):
-                    Push(tray, x, unique_cards[i][0], enemy_direction)
-            #Dashing Strike
-            dash_stop = p_token_space.safe_count(i, enemy_direction, p_token.check()[0])
-            for k in unique_cards: 
-                if k != i or len(unique_cards[i]) > 1:
-                    if k == i:
-                        attk_cards = unique_cards[k][1:]
-                    else:
-                        attk_cards = unique_cards[k]
-                    x = dash_stop.count(k, enemy_direction)
-                    if x:
-                        if set( x.check('has')) & set( rival_tokens):
-                            for j in range(1, len(attk_cards)+1):
-                                DashingStrike(tray, x, p_token, enemy_direction, unique_cards[i][0], attk_cards[:j])
-
-            
-        return tray
-
-
-    def make_suffering_tray(self, suffering):
-        tray = self.register(OptionTray(suffering.check('player')[0]))
-        tray.action = 0
-        suffering.link(tray, 'tray', 'suffering')
-        token = suffering.check('token')[0]
-        spot = token.check('at')[0]
-        cards = suffering.check('player')[0].check('has')[0].check() 
-        amount = suffering.amount
-        distance = suffering.distance
-        card_values = []
-        unique_cards = {}
-        for i in cards:
-            if i.value not in card_values: 
-                unique_cards[i.value]=[i]
-            else:
-                unique_cards[i.value].append(i)
-            card_values.append(i.value)
-                # Cry
-        if suffering.suf_type == 'cry':
-            source_suf = suffering.check('suffering')[0]
-            s_spot = source_suf.check('token')[0].check('at')[0]
-            move_val, direction = spot.how_far(s_spot)
-            try:
-                if move_val:
-                    move_card = unique_cards[move_val].pop()
-                else:
-                    move_card = 0
-                blk_cards = []
-                for i in range(amount):
-                    blk_cards.append(unique_cards[distance].pop())
-                can_aid = 1
-            except KeyError:
-                can_aid = 0 
-            except IndexError:
-                can_aid = 0
-            DenyAid(tray, suffering)
-
-            if can_aid:
-                DashingBlock(tray, suffering, source_suf, token, direction, move_card, blk_cards)
-                # Attack  Dashing Strike
-        elif suffering.suf_type in  ['dashing strike', 'attack']:
-            if suffering.can_call_for_aid and ( self.game_type in [1, 3] or (self.game_type > 3 and token.dragon == 0)) :
-                enemy_dir = token.closest_enemy()[1]
-                if enemy_dir == 'up': cry_dir = 'down'
-                else: cry_dir = 'up'
-                if distance not in unique_cards: unique_cards[distance] = []
-                min_needed = amount - len(unique_cards[distance])
-                if min_needed < 1: min_needed = 1
-
-                targets1 = token.check()[0].check()
-                targets = []
-                for i in targets1: # same faction tokens
-                    if i.type_string == 'token':
-                        i_player = i.check('owned')[0]
-                        if i_player.winded == 0 and i_player != suffering.check('player')[0]:
-                            i_dist = spot.how_far(i.check('at')[0])
-                            if i_dist[0]==0 or (i_dist[1] == cry_dir and i_dist[0] < 6):
-                                targets.append(i)
-
-                if targets:
-                    for requested_amount in range(min_needed, amount+1):
-                        #my_cards = amount-i
-                        my_cards = unique_cards[distance][:amount-requested_amount]
-                        #hope above doesn't break!
-                        
-                        RequestDashingAid(tray, my_cards, targets, suffering, requested_amount)
-
-            #print "can we defend?", distance, unique_cards, amount
-            if distance in unique_cards:
-                if len(unique_cards[distance]) >= amount:
-                    Defend(tray, suffering, unique_cards[distance][:amount])
-            TakeTheHit(tray, token, suffering)
-        else:
-            raise Exception # no other suff types!
-
-        if suffering.suf_type == 'dashing strike':
-            en_dir = token.closest_enemy()[1]
-            if en_dir == 'up': run_dir = 'down'
-            else: run_dir = 'up'
-            if spot.count(1, run_dir):
-                for run_value in unique_cards:
-                    if unique_cards[run_value]:
-                        Retreat(tray, suffering, token, run_dir, unique_cards[run_value][0])
-                    
-
-  #################  END TRAY CONSTRUCTION  ##################
-
-  #################  BEGIN FLOW CONTROL FUNCITONS  #################
-    def reset_match(self, who_won=''):
-        for i in self.gameboard['tray']:
-            i.destroy()
-            self.deregister(i)
-        for player in self.gameboard['player']:
-            token = player.check('owns')[0]
-            faction = player.check()[0]
-            if not token.check():
-                token.interact(faction)
-
-        for i in self.gameboard['faction'][0].check():
-            if i.type_string == 'token':
-                i.stat(1)
-                i.interact(self.spaces()[0]) #hope they're still in order!
-        for i in self.gameboard['faction'][1].check():
-            if i.type_string == 'token':
-                i.stat(1)
-                i.interact(self.spaces()[-1]) #hope they're still in order!
-
-        deck = self.deck()
-        for i in self.gameboard['card']:
-            i.interact(deck)
-        deck.shuffle()
-        if self.game_type in [5,6,7]:
-            deck.cycles = 1
-        else:
-            deck.cycles = 0
-        for i in self.gameboard['hand']:
-            for j in range(5):
-                i.interact(deck)
-	for i in self.gameboard['player']:
-		i.winded = 0
-        self.turn_order = self.create_turn_order(who_won)
-        self.whos_turn = self.turn_order[0]
-        self.next_tray = self.make_action_tray(self.whos_turn)
-        self.log('New match begins!')
-        log_string = ''
-        for i in self.turn_order:
-            log_string += i.pretty_name()+' '
-        self.log('Turn Order set: '+log_string)
-
-    def create_turn_order(self, who_won=''):
-        factions = self.gameboard['faction']
-        if not who_won:
-            who_won = factions[random.choice([0,1])]
-        fac1_order = [[],[],[]]
-        fac1_vote = 0
-        for i in factions[0].check():
-            if i.type_string == 'player':
-                fac1_order[i.in_team_order()].append(i)
-                fac1_vote+=i.fac_order()
-        random.shuffle(fac1_order[0]) 
-        random.shuffle(fac1_order[1]) 
-        random.shuffle(fac1_order[2]) 
-        fac1_order = fac1_order[0]+fac1_order[1]+fac1_order[2]
-
-        fac2_order = [[],[],[]]
-        fac2_vote = 0
-        for i in factions[1].check():
-            if i.type_string == 'player':
-                fac2_order[i.in_team_order()].append(i)
-                fac2_vote+=i.fac_order()
-        random.shuffle(fac2_order[0]) 
-        random.shuffle(fac2_order[1]) 
-        random.shuffle(fac2_order[2]) 
-        fac2_order = fac2_order[0]+fac2_order[1]+fac2_order[2]
-        fac_order = [fac1_order, fac2_order]
-        
-        turn_order = []
-        if self.game_type > 3 : # DRAGON
-            turn_order = fac1_order + fac2_order
-        else: # no dragon
-            if who_won == factions[1] and fac1_vote:
-                if fac1_vote > 0: choice = 1
-                else: choice = 0
-            elif who_won == factions[0] and fac2_vote:
-                if fac2_vote > 0: choice = 0
-                else: choice = 1
-            else:
-                choice = random.choice([0,1])
-            for i in range(len(fac_order[0])):
-                turn_order.append(fac_order[choice][i])
-                turn_order.append(fac_order[1-choice][i])
-        return turn_order
-
-
-    def time_out(self):
-        fac_tokens = []
-        for i in self.gameboard['faction']:
-            fac_tokens.append({})
-            for j in i.check('connected'): #players
-                if j.type_string == 'player' and j.status:
-                    cards = j.check('has')[0].check('connected') 
-                    token = j.check('owns')[0]
-                    t_space = token.check('at')[0]
-                    if t_space not in fac_tokens[-1]: fac_tokens[-1][t_space] = [[],{}]
-                    fac_tokens[-1][t_space][0].append(token) # trusts factions can't share spots
-                    x2 = fac_tokens[-1][t_space][1]
-                    for i2 in cards:
-                        if i2.value not in x2: x2[i2.value] = []
-                        x2[i2.value].append(i2)
-        # okay so we made fac_tokens list of { gamespace:[[tokens],{card_val:[cards]}]}
-        # okay now fac_tokens[1] vs fac_tokens[0]
-        # try to trade last-hits
-        fac1_list = fac_tokens[0]
-        fac2_list = fac_tokens[1]
-        for f1_space in fac1_list:
-            f1_card_dict = fac1_list[f1_space][1]
-            f1_token = fac1_list[f1_space][0][0]
-            enemy_dir = f1_token.closest_enemy()[1]
-            for card_val in f1_card_dict:
-                f1_cards = f1_card_dict[card_val]
-                possible_target = f1_space.count(card_val, enemy_dir) 
-                if possible_target in fac2_list:
-                    if card_val in fac2_list[possible_target][1]:
-                        f2_cards = fac2_list[possible_target][1].pop(card_val) #must pop so no double-counting
-                    else:
-                        f2_cards = []
-                    if len(f1_cards) > len(f2_cards):
-                        self.log(self.gameboard['faction'][0].pretty_name()+' deliver a last-hit to '+possible_target.pretty_name())
-                        for guy in possible_target.check('has'):
-                            guy.take_hit()
-                    if len(f1_cards) < len(f2_cards):
-                        self.log(self.gameboard['faction'][1].pretty_name()+' deliver a last-hit to '+f1_space.pretty_name())
-                        for guy in f1_space.check('has'):
-                            guy.take_hit()
-        
-                    # intentional to not remove cards contributed by now dead guys
-                    # everyone stabs at once in the melee!
-                    # (maybe check the rules on that)
-
-        for f2_space in fac2_list:
-            f2_card_dict = fac2_list[f2_space][1]
-            f2_token = fac2_list[f2_space][0][0]
-            # need to update token list in case people died
-            # but no, even if they died they can strike at others
-            # look, we know this is the rightguys
-            enemy_dir = 'up'  # HACK
-            for card_val in f2_card_dict:
-                f2_cards = f2_card_dict[card_val]
-                possible_target = f2_space.count(card_val, enemy_dir) 
-                if possible_target in fac1_list:
-                    if card_val in fac1_list[possible_target][1]:
-                        f1_cards = fac1_list[possible_target][1].pop(card_val) # now we pop because we can't stop
-                    else:
-                        f1_cards = []
-                    if len(f2_cards) > len(f1_cards):
-                        self.log(self.gameboard['faction'][1].pretty_name()+' deliver a last-hit to '+possible_target.pretty_name())
-                        for guy in possible_target.check('has'):
-                            guy.take_hit()
-                    if len(f2_cards) < len(f1_cards):
-                        self.log(self.gameboard['faction'][0].pretty_name()+' deliver a last-hit to '+f2_space.pretty_name())
-                        for guy in f1_space.check('has'):
-                            guy.take_hit()
-            #really hope that cut and paste went okay
-       
-                                
-        # if both sides still up after trading blows
-        winner = 0
-        fac1_token = 0
-        fac2_token = 0
-        for fac in self.gameboard['faction']:
-            any_alive = 0
-            for token in fac.check('connected'):
-                if token.type_string == 'token':
-                    if fac == self.gameboard['faction'][0]:
-                        fac1_token = token
-                    else:
-                        fac2_token = token
-                    any_alive += token.stat()
-            if not any_alive:
-                winner = fac.check('rival')[0]   
-        #then measure who got the farthest
-        if not winner:
-            fac2_dist = fac1_token.closest_enemy()[0] + fac1_token.check('at')[0].how_far(self.gameboard['gamespace'][0])[0]
-            fac1_dist = fac2_token.closest_enemy()[0] + fac2_token.check('at')[0].how_far(self.gameboard['gamespace'][17])[0]
-            if fac1_dist < fac2_dist:
-                winner = self.gameboard['faction'][0]
-                self.log(winner.pretty_name()+' won by distance')
-            if fac1_dist > fac2_dist:
-                winner = self.gameboard['faction'][1]
-                self.log(winner.pretty_name()+' won by distance')
-        else:
-            self.log(winner.pretty_name()+' won by final blows')
-        return winner 
-
-    def make_choice(self, choice):
-        if choice in self.next_tray.choice_ids:
-            print "RESOLVING CHOICE ", choice
-            self.log(choice+':'+self.next_tray.resolve(choice))
-            self.gameboard['tray'].remove(self.next_tray)
-            self.next_tray = 0
-            for token in self.gameboard['token']:
-                print "TOKEN CHECK: ", token.pretty_name(), token.status
-                owner = token.check('owned')[0]
-                print "OWNER CHECK: ", owner.pretty_name()
-                if token.status == 0:
-                    self.gameboard['token'].remove(token)
-                    self.gameboard['deadtoken'].append(token)
-                    if owner in self.turn_order:
-                        self.turn_order.remove(owner)
-            self.update_next_tray()
-
-        
-
-    def update_next_tray(self):
-        if not self.is_game_over():
-            if not self.next_tray:
-                suffering = []
-                for i in self.gameboard['player']:
-                    x = i.check('suffering')
-                    for j in x:
-                        if not j.check('tray'):
-                            suffering.append(j)
-                #Need to change this to only make tray for the best suffering
-                cry_suffs = []
-                noncry_suffs = []
-                for i in suffering:
-                    if i.suf_type == 'cry':
-                        cry_suffs.append(i)
-                    else:
-                        noncry_suffs.append(i)
-                if cry_suffs:#pick best
-                    cause_origin = cry_suffs[0].check('suffering')[0].check('token')[0].check('at')[0] #hope that works!
-                    best_suff = [20,cry_suffs[0]]
-                    for x in cry_suffs:
-                    #best is the closest to cause_suf_spot, then first in turn order
-                        y = cause_origin.how_far(x.check('token')[0].check('at')[0])[0] 
-                        if y == best_suff[0]:
-                            cur_suff_turn_num = self.turn_order.index(best_suff[1].check('player')[0])
-                            new_suff_turn_num = self.turn_order.index(y.check('player')[0])
-                            if cur_suff_turn_num > new_suff_turn_num:
-                                best_suff[0] = y
-                                best_suff[1] = x
-
-                        elif y < best_suff[0]:
-                            best_suff[0] = y
-                            best_suff[1] = x
-                    self.make_suffering_tray(best_suff[1])
-                elif noncry_suffs: #pick best
-                    #best is the farthest back, then first in turn order
-                    chosen_suff = [0,noncry_suffs[0]]
-                    for x in noncry_suffs:
-                        dist_to_en = x.check('token')[0].closest_enemy()[0] 
-                        if dist_to_en > chosen_suff[0]:
-                            chosen_suff = [dist_to_en, x]
-                        elif dist_to_en == chosen_suff[0]:
-                            cur_suff_turn_num = self.turn_order.index(chosen_suff[1].check('player')[0])
-                            new_suff_turn_num = self.turn_order.index(x.check('player')[0])
-                            if cur_suff_turn_num > new_suff_turn_num:
-                                chosen_suff[0] = dist_to_en
-                                chosen_suff[1] = x
-
-
-
-                    self.make_suffering_tray(chosen_suff[1])
-
-                if self.gameboard['tray']: #check for existing trays
-                    #pick the best
-                    cries = []
-                    not_cries = [] # multple attacked at once!
-                    for tray in self.gameboard['tray']:
-                        if not tray.check('suffering'):
-                            self.gameboard['tray'].remove(tray)
-                            #raise Exception # shouldn't be action tray same time as suffering
-                        else:
-                            if tray.check('suffering')[0].suf_type == 'cry':
-                                cries.append(tray)
-                            else:
-                                not_cries.append(tray)
-                    rev_order = self.turn_order[:]
-                    rev_order.reverse()
-                    pick = 0
-                    if cries:
-                        for player in rev_order:
-                            for tray in cries:
-                                if player in tray.check('owner'):
-                                    pick = tray
-                    else:
-                        for player in rev_order: # distance order?
-                            for tray in not_cries:
-                                if player in tray.check('owner'):
-                                    pick = tray
-                    self.next_tray = pick
-                # if all the existing trays were garbage removed
-                if not self.next_tray:
-                    while self.whos_turn.winded == 1 and not self.is_game_over():
-                        self.turn_wrap_up()
-                    if self.is_game_over():
-                        self.game_over_stuff()
-                    else:
-                        self.next_tray = self.make_action_tray(self.whos_turn)
-        else:
-            self.game_over_stuff()
-
-
-    def turn_wrap_up(self):
-        if self.game_type <4 or self.whos_turn == self.turn_order[-1]:
-            hand = self.whos_turn.check('has')[0].check('connected')
-            num_cards = 5 - len(hand)
-            if num_cards < 0: num_cards = 0
-            for i in range(num_cards):
-                self.whos_turn.check('has')[0].interact(self.deck())
-
-        elif self.whos_turn == self.turn_order[-2] and self.game_type > 3:
-            hand = self.whos_turn.check('has')[0].check('connected')
-        self.whos_turn.winded = 0
-        if self.whos_turn == self.turn_order[-1]:
-            self.whos_turn = self.turn_order[0]
-        else:
-            ind = self.turn_order.index(self.whos_turn) + 1 
-            self.whos_turn = self.turn_order[ind]
-
-    def game_over_stuff(self):
-        game_over = self.is_game_over()
-        if game_over == 0:
-            raise Error
-        elif game_over == 1:
-            self.log('The match timed out!')
-            winner = self.time_out()
-            if winner: 
-                winner.score(1)
-        else:
-            winner = game_over
-            winner.score(1)
-            self.log(winner.pretty_name()+ ' win the match.')
-        if winner:
-            if winner.score() < 3 and self.game_type < 4:
-                self.reset_match(winner)
-            else:
-                self.next_tray = 0
-                self.winner = winner # Game winner!
-                self.log('The game is over, with %s winning %d to %d!' % (winner.pretty_name(), winner.points, winner.check('rival')[0].points))
-        else:
-            self.log('The match was a tie!')
-            self.reset_match()
-
-
-  #################  END FLOW CONTROL FUNCITONS  #################
-
-####################END CONTROL CLASSES#####################
-
-  ##############  BEGIN LAST CLAIM TO RELEVANCE  ###############
-def make_choice(snapshot, choice):
-    table = Game()
-    table.spawn_from_snapshot(snapshot)
-    table.make_choice(choice)
-    snapshot = table.master_snapshot()
+    # vote on fac name
+    faction_name_vote(snapshot)
+    # All done!  Let's start the game
+    start_match(snapshot)
     return snapshot
 
-  ##############  END LAST CLAIM TO RELEVANCE  ###############
+  #####################  START ASSEMBLY TOOLS  ####################
+def name_vote(players):
+    random.shuffle(players)
+    name_list = []
+    prohibited = ['log', 'turnorder', 'whosturn', 'imp', 'deck', 'mycards', 'choices', 'dragon', 'grave', 'game', 'rightfaction', 'leftfaction']
+    for player in players:
+        flag = 0
+        robot = robot_lookup_table[player['controller']]()
+        name = getattr(robot, 'name', '')
+        if not name or name in prohibited: name = 'Anonymous Robot'
+        while name in name_list:
+            if flag:
+                name = name[:-1]+str(flag+2)
+            else:
+                name = name+' '+str(flag+2)
+            flag += 1
+        name_list.append(name)
+        player['name'] = name
+    return players # not needed?
 
+def color_vote(players):
+       #### Matrix Assembly ####
+    num_players = len(players)
+    color_defaults = ['green', 'yellow', 'maroon', 'blue', 'purple']
+    color_matrix = []
+    for player in players:
+        # collect
+        robot = robot_lookup_table[player['controller']]()
+        temp_color_pref = robot.color_pref
+        # scrub
+        temp_color_pref = list(set(temp_color_pref)) # remove duplicates
+        for j in range(len(temp_color_pref)):
+            color = temp_color_pref[j]
+            if not color or color == 'black':  # clean bad entries
+                temp_color_pref.pop(j)
+        if len(temp_color_pref) >num_players:  # cut
+            temp_color_pref = temp_color_pref[:num_players]
+        elif len(temp_color_pref) < num_players:  # grow
+            for color in color_defaults:
+                if color not in temp_color_pref and len(temp_color_pref)<num_players:
+                    temp_color_pref.append(color)
+        #add
+        color_matrix.append(temp_color_pref)
+     #### Voting ####
+     # color_matrix should be nxn [i] = player [j] = jth fav color
+    color_list = [0,0,0,0,0]
+    for vote_num in range(num_players):
+        vote_dict = {}
+        for p_num in range(num_players):
+            if not color_list[p_num]: # if she doesn't have a color
+                color = color_matrix[p_num][vote_num] # pick her ith fav color
+                if color not in color_list: # if it's free
+                    if color not in vote_dict:
+                        vote_dict[color] = []
+                    vote_dict[color].append(p_num)  # she votes for it
+        #after all votes collected
+        for color in vote_dict:
+            winner = random.choice(vote_dict[color]) 
+            if 'color' not in players[winner]:
+                color_list[winner]= color
+                players[winner]['color'] = color
+            else:
+                raise Exception # Bad voting
+    return players  #not needed?
+
+def faction_name_vote(snapshot):
+    name_suggestions = {'l':[], 'r':[]}
+    for faction in ['leftfaction', 'rightfaction']:
+        players = snapshot[faction]['players']
+        for player in players:
+
+            robot = robot_lookup_table[snapshot[player]['controller']]()
+            suggestion = getattr(robot, 'faction', '')
+            if suggestion:  # can leave blank if they don't care about faction
+                name_suggestions[faction[0]].append(suggestion)
+    # check if either side doesn't care
+    defaults = ['U.S. Robots', 'The Academy'] #, 'Unaligned', 'Mavericks', 'Defective Robot Alliance', 'Battlebots' ]
+    if not name_suggestions['l'] and not name_suggestions['r']:
+        random.shuffle(defaults)
+        snapshot['leftfaction']['name'], snapshot['rightfaction']['name'] = defaults
+    elif not name_suggestions['r']:
+        l_name = random.choice(name_suggestions['l'])
+        snapshot['leftfaction']['name']= l_name
+        if l_name == defaults[0]:
+            snapshot['rightfaction']['name']= defaults[1]
+        else:
+            snapshot['rightfaction']['name']= defaults[0]
+        
+    elif not name_suggestions['l']:
+        r_name = random.choice(name_suggestions['r'])
+        snapshot['rightfaction']['name']= r_name
+        if r_name == defaults[0]:
+            snapshot['leftfaction']['name']= defaults[1]
+        else:
+            snapshot['leftfaction']['name']= defaults[0]
+    # if both sides care:
+    elif name_suggestions['l'] == name_suggestions['r'] and len(name_suggestions['l']) == 1:  # but they both only want the same one name
+        if name_suggestions['l'][0] == defaults[0]:
+            defaults = [name_suggestions['l'][0], defaults[1]]
+        else:
+            defaults = [name_suggestions['l'][0], defaults[0]]
+        random.shuffle(defaults)
+        snapshot['leftfaction']['name'], snapshot['rightfaction']['name'] = defaults
+    else:  # otherwise
+        l_name = r_name = 0
+        while l_name == r_name:
+            l_name = random.choice(name_suggestions['l'])
+            r_name = random.choice(name_suggestions['r'])
+        snapshot['leftfaction']['name'], snapshot['rightfaction']['name'] = l_name, r_name
+    return snapshot
+
+  #####################  END ASSEMBLY TOOLS  ####################
+######################## END GAME ASSEMBLY ############################
+
+ #####################  START MATCH SETUP  #####################
+
+def start_match(snapshot, lastwinner=''):
+    game_type = snapshot['game'][0]
+    #what round is it?  Ignores ties
+    match_num = 1 + snapshot['leftfaction']['score'] + snapshot['rightfaction']['score']
+    snapshot['log'].append('Round %d Begins!'% match_num)
+    # which side goes first
+    if lastwinner == 'l' or lastwinner == 'leftfaction':
+        lastwinner='leftfaction'
+    elif lastwinner == 'r' or lastwinner == 'rightfaction':
+        lastwinner='rightfaction'
+    elif not lastwinner or lastwinner == 't':
+        if random.choice([0,1]):
+            lastwinner='leftfaction'
+        else:
+            lastwinner='rightfaction'
+    else:
+        print lastwinner
+        raise Exception # Bad last winner
+    if game_type not in [4,5,6]:
+        if lastwinner == 'leftfaction':
+            l_first = not forder_vote(snapshot, 'rightfaction')
+        else:
+            l_first = forder_vote(snapshot, 'leftfaction')
+    else:
+        l_first = 1  
+    # who goes first in-team
+    l_order = torder_vote(snapshot, 'leftfaction')
+    r_order = torder_vote(snapshot, 'rightfaction')
+    # put in all together!
+    turn_order = []
+    if l_first: 
+        if game_type in [4,5,6]: 
+            turn_order = l_order+r_order # dragon goes after all
+        else:
+            for i in range(len(l_order)): turn_order.extend([l_order[i], r_order[i]])
+    else:
+        for i in range(len(l_order)): turn_order.extend([r_order[i], l_order[i]])
+    log_string = "Turn Order Set: "
+    for player in turn_order:
+        log_string += player+', '
+    log_string = log_string[:-2]
+    snapshot['log'].append(log_string)
+    snapshot['turnorder']= turn_order
+    snapshot['whosturn']= turn_order[0]
+    if game_type in [5,6]: cycles = 1
+    else: cycles = 0
+    if game_type in [1,3,4,6]: num_cards = 10
+    elif game_type == 5: num_cards = 8
+    else: num_cards = 5
+    deck = []
+    for i in range(1,6):
+        for j in range(num_cards):
+            deck.append(i)
+    random.shuffle(deck)
+    for p in player_list(snapshot):
+        player = snapshot[p]
+        if player['dragon']:
+            player['health'] = game_type - 2
+            player['num_cards'] = game_type + 3
+        else:
+            player['health'] = 1
+            player['num_cards'] = 5
+        player['cards']= []
+        for i in range(player['num_cards']):
+            player['cards'].append(deck.pop())
+        if p in snapshot['leftfaction']['players']:
+            player['spot'] = 1
+        else:
+            player['spot'] = 18
+    snapshot['deck'] = (deck, cycles)
+    snapshot['grave'] = []
+    action_choices(snapshot)
+    return snapshot
+
+  #####################  START MATCH SETUP TOOLS  ####################
+def forder_vote(snapshot, faction):
+    players = snapshot[faction]['players']
+    vote_total = 0
+    for player in players:
+        robot = robot_lookup_table[snapshot[player]['controller']]()
+        vote = robot.forder_vote(snapshot)
+        if vote == 'first':
+            vote_total += 1
+        elif vote == 'last':
+            vote_total -= 1
+    if vote_total == 0:
+        me_first = random.choice([0,1])
+    elif vote_total < 0:
+        me_first = 0
+    else:
+        me_first = 1
+    return me_first
+
+def torder_vote(snapshot, faction):
+    players = snapshot[faction]['players']
+    if len(players) == 1:
+        return players
+    else:
+        sorted_players = [[],[],[]]
+        for player in players:
+            robot = robot_lookup_table[snapshot[player]['controller']]()
+            vote = robot.torder_vote(snapshot) 
+            if vote == 'first':
+                sorted_players[0].append(player)
+            elif vote == 'last':
+                sorted_players[2].append(player)
+            else:
+                sorted_players[1].append(player)
+    turn_order = []
+    for i in range(3):
+        random.shuffle(sorted_players[i])
+        turn_order += sorted_players[i]
+    return turn_order
+
+def player_list(snapshot):
+    return snapshot['leftfaction']['players'] + snapshot['rightfaction']['players']
+
+  #####################  END MATCH SETUP TOOLS  ####################
+
+####################  END MATCH SETUP  ########################
+
+
+  ##################  START SNAPSHOT PROCESSING  #############
+
+def action_choices(snapshot):
+    choices = []
+    player = snapshot['whosturn']
+    my_spot = snapshot[player]['spot']
+    if player in snapshot['leftfaction']['players']:
+        enemies = snapshot['rightfaction']['players']
+    else:
+        enemies = snapshot['leftfaction']['players']
+    dist_list = [abs(my_spot - snapshot[enemy]['spot']) for enemy in enemies]
+    card_count = [None, 0, 0, 0, 0, 0]
+    cards = snapshot[player]['cards']
+    for card in cards:
+        card_count[card] += 1
+    #move
+    for card in range(1,6):
+        if card_count[card]:
+            choices.extend(['f%d'%card, 'b%d'%card])
+    #shove
+    if 1 in dist_list:
+        for card in range(1,6):
+            if card_count[card]:
+                choices.append('s%d'%card)
+    #attack
+    for card in range(1,6):
+        if card_count[card] and card in dist_list:
+            for num in range(card_count[card]):
+                choices.append('a'+str(card)*(num+1))
+    #dashing strike
+    for move_card in range(1,6):
+        if card_count[move_card]:
+            duplicate_count = card_count[:]
+            duplicate_count[move_card] -= 1
+            moved = min( min(dist_list)-1, move_card)
+            for card in range(1,6):
+                if duplicate_count[card] and card + moved in dist_list:
+                    for num in range(duplicate_count[card]):
+                        choices.append('d'+str(move_card)+str(card)*(num+1))
+    choice_tuple = (player, choices)
+    snapshot['choices'] = choice_tuple
+
+
+def suffering_choices(snapshot):
+    if 'imp' not in snapshot:
+        raise Exception # No suffering to analyse!
+    cry = 0
+    attks = []
+    for suffering in snapshot['imp']:
+        if suffering['crier']:
+            if cry:
+                raise Exception # Multiple cries!
+            else:
+                cry = suffering
+        else:
+            attks.append(suffering)
+    choices = []
+    if cry:
+        # deny
+        choices.append('x')
+        # interpose
+        dash_spot = snapshot[cry['crier']]['spot']
+        actor = cry['victims'][0]
+        my_spot = snapshot[actor]['spot']
+        my_cards = snapshot[actor]['cards']
+        dist = abs(dash_spot - my_spot)
+        needed = cry['cards'] + [dist]
+        if needed < my_cards:
+            choices.append('i'+str(dist)+str(needed[0])*len(needed-1))
+    else:
+        #pick the best
+        # furthest back, then turn order
+        victim = (0, [])
+        for i in range(len(attks)):
+            target = attks[i]['victims']
+            dist_from_en = 0
+            if dist_from_en > victim[0]:
+                victim[0] = dist_from_en
+                victim[1] = [(target,i)]
+            if dist_from_en == victim[0]:
+                victim[1].append((target,i))
+        target = (0,20, 10)
+        for j in victim[1]:
+            check_guy, suff_index = j[0], j[1]
+            check_order = snapshot['turnorder'].index(check_guy)
+            if check_order < target[1]: target = (check_guy, check_order, suff_index)
+        print attks, target[2]
+        attack = attks[target[2]]
+        # now analyze:
+        actor = attack['victims']
+        my_spot = snapshot[actor]['spot']
+        my_cards = snapshot[actor]['cards']
+        counted_cards = [None, 0, 0, 0, 0, 0]
+        for i in my_cards:
+            counted_cards[i] += 1
+        # takehit
+        choices.append('t')
+        # retreat
+        if attack['can_retreat'] and my_spot not in [1,18]:
+            for card in range(1,6):
+                if counted_cards[card]:
+                    choices.append('r'+str(card))
+        # parry
+        needed = attack['cards']
+        if counted_cards[needed[0]] >= len(needed):
+            choices.append('p')
+        # cry
+        if attack['can_cry']:
+            can_cry = 0
+            if actor in snapshot['leftfaction']['players']: 
+                check = range(max(1, my_spot-5),my_spot+1)
+                allies = snapshot['leftfaction']['players']
+            else: 
+                check = range(my_spot, min(my_spot + 6, 19))
+                allies = snapshot['rightfaction']['players']
+            for player in allies:
+                if snapshot[player]['spot'] in check:
+                    can_cry = 1
+                    break
+            if can_cry:
+                min_needed = max(len(needed)-counted_cards[needed[0]], 0)
+                for i in range(min_needed, len(needed)+1):
+                    choices.append('c'+str(needed[0])*i)
+    snapshot['choices'] = (actor, choices)
+
+
+def refresh(snapshot, player):
+    snapshot[player]['winded'] = 0
+    game_type = snapshot['game'][0]
+    if game_type in [4,5,6] and not snapshot[player]['dragon']:
+        if player == snapshot['turnorder'][-2]:
+            for ally in snapshot['leftfaction']['players']:
+                refill_hand(snapshot, ally)
+    else:
+        refill_hand(snapshot, player)
+
+def refill_hand(snapshot, player):
+    game_type = snapshot['game'][0]
+    dragon = snapshot[player]['dragon']
+    hand = snapshot[player]['cards']
+    hand_len = len(hand)
+    deck = snapshot['deck'][0]
+    if not dragon:
+        max_hand = 5
+    else:
+        max_hand = game_type + 3
+    if hand_len > max_hand: hand_len = max_hand
+    elif max_hand - hand_len > len(deck): hand_len= max_hand-len(deck)
+    for i in range(max_hand-hand_len):
+        hand.append(deck.pop())
+
+def end_turn(snapshot):
+    if 'imp' in snapshot or 'choices' in snapshot:
+        raise Exception # Turn is not over yet!
+    cur_player = snapshot['whosturn']
+    turn_order = snapshot['turnorder']
+    snapshot[cur_player]['winded'] = 1  # Just for a second
+
+    while snapshot[cur_player]['winded'] and not match_over(snapshot):
+        refresh(snapshot, cur_player)
+        #who's next?
+        if cur_player == turn_order[-1]:
+            cur_player = turn_order[0]
+        else:
+            index = turn_order.index(cur_player)
+            cur_player = turn_order[index+1]
+    snapshot['whosturn'] = cur_player
+    if match_over(snapshot):
+        conclude_match(snapshot)
+    else:
+        action_choices(snapshot)
+
+def match_over(snapshot):
+    over = 0
+    for faction in 'leftfaction', 'rightfaction':
+        alive = 0
+        for player in snapshot[faction]['players']:
+            alive += snapshot[player]['health']
+        if not alive:
+            if over:
+                raise Exception # Everyone dead on both sides?
+            over = 1
+    if not over:
+        deck_len, cycles = snapshot['deck']
+        if not deck_len and not cycles:
+            over = 1
+        else: # Game on!
+            over = 0
+    return over 
+
+def conclude_match(snapshot):
+    match_winner = 0
+    rival = {'l':'r', 'r':'l'}
+    for faction in 'leftfaction', 'rightfaction':
+        alive = 0
+        for player in snapshot[faction]['players']:
+            alive += snapshot[player]['health']
+        if not alive:
+            if match_winner:
+                raise Exception # Everyone dead on both sides?
+            match_winner = rival[faction[0]]
+    if not match_winner:
+        deck_len, cycles = snapshot['deck']
+        if not deck_len and not cycles:
+            match_winner = timeout(snapshot)  # 't', 'l', 'r'
+        else:
+            raise Exception # Game Called Prematurely
+    if match_winner == 'l':    
+        snapshot['leftfaction']['score'] += 1
+        snapshot['log'].append('%s Win the Match!'%snapshot['leftfaction']['name'])
+    elif match_winner == 'r':    
+        snapshot['rightfaction']['score'] += 1
+        snapshot['log'].append('%s Win the Match!'%snapshot['rightfaction']['name'])
+    else:
+        snapshot['log'].append('The Match ends in a Tie!')
+    if game_over(snapshot):
+        conclude_game(snapshot)
+    else:
+        start_match(snapshot, match_winner)
+
+def game_over(snapshot):
+    max_score = max(snapshot['leftfaction']['score'], snapshot['rightfaction']['score'] )
+    if max_score > 2:
+        return 1
+    else:
+        return 0
+
+def conclude_game(snapshot):
+    l_score, r_score = snapshot['leftfaction']['score'], snapshot['rightfaction']['score']
+    if l_score > r_score:
+        winner = snapshot['leftfaction']['name']
+        snapshot['log'].append('%s Win the game, %d to %d!' % (winner, l_score, r_score))
+    elif r_score > l_score:
+        winner = snapshot['rightfaction']['name']
+        snapshot['log'].append('%s Win the game, %d to %d!' % (winner, r_score, l_score))
+    else:
+        raise Exception # How did the game get called?
+    if choices in snapshot: del snapshot['choices']
+    if imp in snapshot: del snapshot['imp']
+
+def timeout(snapshot):
+    # last hits
+    hit_dict = {'l':{}, 'r':{}}
+    for faction in ['leftfaction', 'rightfaction']:
+        for player in snapshot[faction]['players']:
+            use_dict = hit_dict[faction[0]]
+            spot = snapshot[player]['spot']
+            if spot not in use_dict: use_dict[spot] = {'cards':[],'players':[]}
+            use_dict[spot]['cards'] += snapshot[player]['cards']
+            use_dict[spot]['players'].append(player)
+    for l in hit_dict['l']:
+        for r in hit_dict['r']:
+            dist = r - l
+            l_spot, r_spot = hit_dict['l'][l], hit_dict['r'][r]
+            l_count = l_spot['cards'].count(dist)
+            r_count = r_spot['cards'].count(dist)
+            if l_count > r_count: 
+                snapshot['log'].append('Spot %s last-hits spot %s' %(l,r))
+                for player in r_spot['players']:
+                    snapshot[player]['health'] -= 1
+            elif r_count > l_count:
+                snapshot['log'].append('Spot %s last-hits spot %s' %(r,l))
+                for player in l_spot['players']:
+                    snapshot[player]['health'] -= 1
+    # both sides still up?
+    rival = {'l':'r', 'r':'l'}
+    match_winner = 0
+    for faction in 'leftfaction', 'rightfaction':
+        alive = 0
+        for player in snapshot[faction]['players']:
+            alive += snapshot[player]['health']
+        if alive < 0:
+            if match_winner:
+               match_winner = 't'  # Double KO!  (Check rules on this)
+            else:
+                match_winner = rival[faction[0]]
+    # who's the farthest
+    if not match_winner:
+        snapshot['log'].append('The match is decided by distance!')
+        l_best = max([snapshot[player]['spot'] for player in snapshot['leftfaction']['players']])
+        r_best = max([(19 - snapshot[player]['spot']) for player in snapshot['rightfaction']['players']])
+        if l_best > r_best: match_winner = 'l'
+        elif l_best < r_best: match_winner = 'r'
+        else: match_winner = 't'
+    return match_winner # 'r', 'l', 't'
+
+  ##################  END SNAPSHOT PROCESSING  #############
+
+   ###################  BEGIN ROBOT INTERFACE PROTOCOL  ##################
+def robot_control(snapshot, flag=''):
+    if 'choices' in snapshot:
+        controller = snapshot[snapshot['choices'][0]]['controller']
+    else:
+        controller = 'human'
+    while controller != 'human':
+        print "CONTROLLER: ", controller
+        if controller in robot_lookup_table:
+            robot_name = snapshot['choices'][0]
+            robot_snap = player_snap_from_master(snapshot, robot_name)
+            robot = robot_lookup_table[controller]()
+            robot_choice = robot.make_choice(robot_snap)
+            print "%s CHOICE: %s"%(robot_name, robot_choice)
+            snapshot = do_things(snapshot, robot_choice)
+            complete_archive(snapshot)
+            if flag: print printers.print_from_snapshot(snapshot)
+            if 'choices' in snapshot:
+                controller = snapshot[snapshot['choices'][0]]['controller']
+            else:
+                controller = 'human'
+        else:
+            print '\n+++++\n'+controller+'\n++++++\n'
+            raise Exception # Bad Robot Type
+    print "CONTROLLER: ", controller
+    return snapshot
+   ###################  END ROBOT INTERFACE PROTOCOL  ##################
+
+#################  START LOGGING/DIPLAY FUNCTIONALITY  ####################
+def player_snap_from_master(master_snap, player_name=''):
+    if player_name.isdigit():
+        name_dict = names_from_ids(master_snap)
+        p_id = int(player_name)
+        if p_id in name_dict:
+            player_name = name_dict[p_id]
+        else:
+            player_name = 'p0'
+    snapshot = copy.deepcopy(master_snap)  # hope this works
+    if 'choices' in snapshot and player_name != snapshot['choices'][0]:
+        del snapshot['choices']
+    for faction in ['leftfaction','rightfaction']:
+        for player in snapshot[faction]['players']:
+            player_info = snapshot[player]
+            if player == player_name:
+                snapshot['mycards'] = (player, player_info['cards'])
+            else:
+                del snapshot[player]['id_num']
+            del player_info['cards']
+    return snapshot
+    
+
+def names_from_ids(mastersnapshot):
+    id_dict = {}
+    for player in full_player_list(mastersnapshot):
+        id_dict[mastersnapshot[player]['id_num']] = player
+    return id_dict
+
+
+ ################  START FILE PICKLING  #################
+def file_snap(snapshot, game_id='', player_id=-1):
+    if player_id != -1: 
+        player_id = str(player_id)
+        if player_id.isdigit(): player_id = 'p'+player_id
+    else:
+        player_id = ''
+    if not game_id:
+        game_id=snapshot['game'][1]
+    game_id = str(game_id)
+    if game_id.isdigit() : game_id = 'g'+game_id
+    archive_file = 'data/'+game_id+player_id+'_archive.pkl'
+    #print "Reading File: " + archive_file
+    try:
+        check2_file = open(archive_file, 'rb')
+        archive_list = pickle.load(check2_file)
+        check2_file.close()
+        #print "File Read!"
+    except IOError:
+        archive_list = []
+    archive_list.append(snapshot)
+    #print "Writing File: " + archive_file
+    log_file = open(archive_file, 'wb')
+    pickle.dump(archive_list, log_file, -1)
+    log_file.close()
+
+def file_recov(game_id='g0'):
+    archive_file = 'data/'+str(game_id)+'_archive.pkl'
+    #print "Reading File: " + archive_file
+    try:
+        snap_file = open(archive_file, 'rb')
+        snapshot_list = pickle.load(snap_file)
+        snapshot = snapshot_list[-1]
+        #print "File Read!"
+    except IOError: snapshot = 0
+    return snapshot
+
+def player_snap_files(snapshot):
+    game_id = 'g'+str(snapshot['game'][1])
+    for faction in ['leftfaction', 'rightfaction']:
+        for player in snapshot[faction]['players']:
+            player_info = snapshot[player]
+            player_id = player_info['id_num']
+            player_snap = player_snap_from_master(snapshot, player)
+            file_snap(player_snap, game_id, player_id)
+    snapshot = player_snap_from_master(snapshot)
+    file_snap(snapshot, game_id, 'p0')
+
+def complete_archive(snapshot):
+    file_snap(snapshot)
+    player_snap_files(snapshot)
+ ################  END FILE PICKLING  #################
+#################  END LOGGING/DIPLAY FUNCTIONALITY  ####################
+
+ ################### START ACTION FUNCTIONS #######################
+def do_things(snapshot, choice):
+    if choice in snapshot['choices'][1]:
+        enact_choice(snapshot, choice)
+        del snapshot['choices']
+        if match_over(snapshot):
+            conclude_match(snapshot)
+        elif 'imp' in snapshot:
+            suffering_choices(snapshot)
+        else:
+            end_turn(snapshot)
+    else:
+        raise Exception # Choice not in available choices
+    return snapshot
+
+def enact_choice(snapshot, choice):
+    choice_type = choice[0]
+    if choice_type in ['r']:
+    #if choice_type in ['a', 's', 'd', 'f', 'b', 'r']:
+        snapshot[snapshot['choices'][0]]['winded'] = 1
+    # Action Options
+    if choice_type == 'a':
+        atk_val = int(choice[1])
+        atk_amnt = len(choice) - 1
+        attack(snapshot, atk_val, atk_amnt)
+    elif choice_type == 's':
+        dist = int(choice[1])
+        shove(snapshot, dist)
+    elif choice_type == 'f':
+        if snapshot['choices'][0] in snapshot['leftfaction']['players']:
+            en_dir = 1
+        else: en_dir = -1
+        dist = int(choice[1])*en_dir
+        move(snapshot, dist)
+    elif choice_type == 'b':
+        if snapshot['choices'][0] in snapshot['leftfaction']['players']:
+            en_dir = 1
+        else: en_dir = -1
+        dist = int(choice[1])*en_dir*-1
+        move(snapshot, dist)
+        pass
+    elif choice_type == 'd':
+        atk_val = int(choice[2])
+        move_dist = int(choice[1])
+        atk_amnt = len(choice)-2
+        dash(snapshot, atk_val, atk_amnt, move_dist)
+    # Defensive Options
+    elif choice_type == 'p':
+        parry(snapshot)
+    elif choice_type == 'r':
+        dist = int(choice[1])
+        retreat(snapshot, dist)
+    elif choice_type == 't':
+        take_hit(snapshot)
+    elif choice_type == 'c':
+        val_needed = int(choice[1])
+        amnt_needed = len(choice)-1
+        cry_for_help(snapshot, val_needed, amnt_needed)
+    # Response Options
+    elif choice_type == 'x':
+        pass
+        deny_help(snapshot)
+    elif choice_type == 'i':
+        move_dist = int(choice[1])
+        donate_val = int(choice[2])
+        donate_amnt = len(choice) - 2
+        interpose(snapshot,move_dist, donate_val, donate_amnt )
+    else:
+        raise Exception # Unknown choice type
+###############  TOOLS  ################
+def action_init(snapshot):
+    actor = snapshot['choices'][0]
+    if actor in snapshot['leftfaction']['players']:
+        en_dir = 1
+        en_fac = 'rightfaction'
+    else:
+        en_dir = -1
+        en_fac = 'leftfaction'
+    my_spot = snapshot[actor]['spot']
+    return actor, en_dir, my_spot, en_fac
+
+def discard(snapshot, player, cards):
+    hand = snapshot[player]['cards']
+    for card in cards:
+        hand.remove(card)
+        snapshot['grave'].append(card)
+
+###############  ACTIONS  ##################
+def attack(snapshot, atk_val, atk_amnt):
+    actor, en_dir, my_spot, en_fac  = action_init(snapshot)
+    target_spot = my_spot + atk_val*en_dir
+    log_str = 'a'+str(atk_val)*atk_amnt+':'+actor+' attacked '
+    snapshot['imp'] = []
+    for player in snapshot[en_fac]['players']:
+        if snapshot[player]['spot'] == target_spot:
+            log_str += player+', '
+            #  HIT THEM IN THE FACE
+            suffering = {'can_retreat':0, 'can_cry':1,'cards':[atk_val]*atk_amnt, 'victims':player, 'crier':0}
+            snapshot['imp'].append(suffering)
+    log_str = log_str[:-2]+' with %d %d-value cards.' % (atk_amnt, atk_val)
+    snapshot['log'].append(log_str)
+    discard(snapshot, actor, [atk_val]*atk_amnt)
+
+def shove(snapshot, dist):
+    actor, en_dir, my_spot, en_fac  = action_init(snapshot)
+    target_spot = my_spot + en_dir
+    final_spot = target_spot + dist*en_dir
+    if final_spot > 18: final_spot = 18
+    elif final_spot < 1: final_spot = 1
+    log_str = 's'+str(dist)+':'+actor+' shoved '
+    for player in snapshot[en_fac]['players']:
+        if snapshot[player]['spot'] == target_spot:
+            log_str += player+', '
+            snapshot[player]['spot'] = final_spot
+    log_str = log_str[:-2]+' to spot %d' % final_spot
+    snapshot['log'].append(log_str)
+    discard(snapshot, actor, [abs(dist)])
+
+def move(snapshot, dist):
+    actor, en_dir, my_spot, en_fac  = action_init(snapshot)
+    en_player_spots = [snapshot[enemy]['spot'] for enemy in snapshot[en_fac]['players']]
+    for i in range(abs(dist)):
+        test_spot = my_spot + dist/abs(dist)
+        if test_spot in en_player_spots+[0,19]:
+            break
+        else:
+            my_spot = test_spot
+        
+    snapshot[actor]['spot'] = my_spot
+    if dist*en_dir > 0: log_str = 'f'
+    else: log_str = 'b'
+    snapshot['log'].append(log_str+'%d:'%abs(dist)+actor+' moved to spot %d' %my_spot)
+    discard(snapshot, actor, [abs(dist)])
+
+
+def dash(snapshot, atk_val, atk_amnt, move_dist):
+    actor, en_dir, my_spot, en_fac  = action_init(snapshot)
+    # Dash!
+    discard(snapshot, actor, [move_dist]+[atk_val]*atk_amnt)
+    en_player_spots = [snapshot[enemy]['spot'] for enemy in snapshot[en_fac]['players']]
+    final_spot = my_spot
+    for i in range(move_dist):
+        if final_spot + en_dir in en_player_spots+[0,19]:
+            break
+        else:
+            final_spot += en_dir
+    # Strike!
+    target_spot = final_spot + atk_val*en_dir
+    log_str = ''
+    for player in snapshot[en_fac]['players']:
+        if snapshot[player]['spot'] == target_spot:
+            log_str += player+', '
+            #  HIT THEM IN THE FACE
+            suffering = {'can_retreat':1, 'can_cry':1,'cards':[atk_val]*atk_amnt, 'victims':player, 'crier':0}
+            snapshot['imp'] = [suffering]
+    snapshot['log'].append('d'+str(move_dist)+str(atk_val)*atk_amnt+':'+actor+' retreated to spot %d!'% final_spot)
+
+#############  DEFENSES  ###################
+def parry(snapshot):
+    actor, en_dir, my_spot, en_fac  = action_init(snapshot)
+    snapshot['log'].append('p:'+actor+' parried the attack!')
+    for suffering in snapshot['imp']:
+        if snapshot['victims'] == actor:
+            discard(snapshot, actor, suffering['cards'])
+            snapshot['imp'].remove(suffering)
+            break
+
+def retreat(snapshot, dist):
+    actor, en_dir, my_spot, en_fac  = action_init(snapshot)
+    if en_dir == 1:
+        final_spot = max(1, my_spot-dist)
+    else:
+        final_spot = min(18, my_spot+dist)
+    discard(snapshot, actor, [dist])
+    snapshot[actor]['spot'] = final_spot
+    for suffering in snapshot['imp']:
+        if suffering['victims'] == actor:
+            snapshot['imp'].remove(suffering)
+            break
+    snapshot['log'].append('r:'+actor+' retreats to spot %d!' % final_spot)
+
+def take_hit(snapshot):
+    actor, en_dir, my_spot, en_fac  = action_init(snapshot)
+    snapshot['log'].append('t:'+actor+' took the hit!')
+    snapshot[actor]['health'] += 1
+    if snapshot[actor]['health'] < 1:
+        snapshot[actor]['spot'] = None
+        log_str = actor+' is out of the match!'
+    else:
+        log_str = actor+' is too tough to be beaten so easily!  He has %d hits left to go!' % snapshot[actor]['health']
+    for suffering in snapshot['imp']:
+        if suffering['victims'] == actor: # is mine:
+            snapshot['imp'].remove(suffering)
+            break
+
+def cry_for_help(snapshot, val_needed, amnt_needed):
+    actor, en_dir, my_spot, en_fac  = action_init(snapshot)
+    # find the source attack
+    for suffering in snapshot['imp']:
+        if suffering['victims'] == actor:
+            atk_suff = suffering
+    # pre-discard your contrib - dragons can't call for help
+    # so you're parring or discarding all either way
+    applied_cards = atk_suff['cards'][amnt_needed:]  
+    atk_suff['cards'] = atk_suff['cards'][:amnt_needed]
+    discard(snapshot, actor, applied_cards)
+    atk_suff['can_cry'] = 0
+    # find the valid aiders
+    log_str = ''
+    if en_fac == 1:
+        allies = snapshot['leftfaction']['players']
+        check = range(1, my_spot+1)
+    else:
+        allies = snapshot['rightfaction']['players']
+        check = range(my_spot, 19)
+    cry_targets = []
+    for dist in range(min(6, len(check))):
+        for player in allies:
+            if snapshot[player]['spot'] == dist:
+                    cry_targets.append(player)  # closest to farthest
+                    log_str += player
+    log_str = log_str[:-2]
+    # ask them for help
+    suffering = {'can_retreat':0, 'can_cry':0,'cards':[val_needed]*amnt_needed, 'victims':cry_targets, 'crier':actor}
+    snapshot['imp'].append(suffering)
+    snapshot['log'].append('c'+str(val_needed)*amnt_needed+':'+actor+' calls to '+log_str+' for aid!')
+###########  RESPONSES  #################
+
+def deny_help(snapshot):
+    actor, en_dir, my_spot, en_fac  = action_init(snapshot)
+    snapshot['log'].append('x:'+actor+' denies the call for aid!')
+    for suffering in snapshot['imp']:
+        if suffering['crier']:
+            suffering['victims'].remove(actor)
+            if not suffering['victims']:
+                snapshot['imp'].remove(suffering)
+            break
+
+def interpose(snapshot, move_dist, donate_val, donate_amnt):
+    actor, en_dir, my_spot, en_fac  = action_init(snapshot)
+    # Find the cry and the attack we're dealing with
+    for suffering in snapshot['imp']:
+        if suffering['crier']:
+            cry_suff = suffering
+            break
+    crier = cry_suff['crier']
+    for suffering in snapshot['imp']:
+        if suffering['victims'] == crier:
+            atk_suff = suffering
+            break
+    # go there and help
+    final_spot = snapshot[crier]['spot']
+    needed = [abs(final_spot-my_spot)]+cry_suff['cards']
+    snapshot[actor]['spot'] = final_spot
+    discard(snapshot, actor, needed)
+    # remove the sufferings
+    snapshot['imp'].remove(cry_suff)
+    snapshot['imp'].remove(atk_suff) # defender pre-discarded her part
+    snapshot['log'].append('i'+str(abs(move_dist))+str(donate_val)*donate_amnt+':'+actor+' moved to spot %d and interposed himself before %s with %d cards!' %(final_spot, crier, donate_amnt))
+
+ #################### END ACTION FUNCTIONS ####################

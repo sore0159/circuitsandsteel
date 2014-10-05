@@ -1,36 +1,8 @@
 import random
 #from snapshots import complete_archive, player_snap_from_master
-import printers
-import snapshots  # robot_control function uses these
-from game import make_choice
-
-   ###################  BEGIN ROBOT INTERFACE PROTOCOL  ##################
-def robot_control(snapshot, flag=''):
-    if 'choices' in snapshot:
-        controller = snapshot[snapshot['choices'][0]]['controller']
-    else:
-        controller = 'human'
-    while controller != 'human':
-        print "CONTROLLER: ", controller
-        if controller in robot_lookup_table:
-            robot_name = snapshot['choices'][0]
-            robot_snap = snapshots.player_snap_from_master(snapshot, robot_name)
-            robot = robot_lookup_table[controller]()
-            robot_choice = robot.make_choice(robot_snap)
-            print "%s CHOICE: %s"%(robot_name, robot_choice)
-            snapshot = make_choice(snapshot, robot_choice)
-            snapshots.complete_archive(snapshot)
-            if flag: print printers.print_from_snapshot(snapshot)
-            if 'choices' in snapshot:
-                controller = snapshot[snapshot['choices'][0]]['controller']
-            else:
-                controller = 'human'
-        else:
-            print '\n+++++\n'+controller+'\n++++++\n'
-            raise Exception # Bad Robot Type
-    print "CONTROLLER: ", controller
-    return snapshot
-   ###################  END ROBOT INTERFACE PROTOCOL  ##################
+#import printers
+#import snapshots  # robot_control function uses these
+#import game
 
   ################### BEGIN ROBOT PARTS #################
 
@@ -199,7 +171,7 @@ class Robot(object):
         return random.choice(non_dumb(snapshot))
 
     def forder_vote(self, snapshot):
-        return self.fac_order_preference
+        return self.fac_order_pref
 
     def torder_vote(self, snapshot):
         return self.in_team_pref

@@ -59,7 +59,7 @@ def print_from_snapshot(snapshot):
             char_string = '@/ '
             if player_info['winded'] and player_name != snapshot['whosturn']:
                 char_string = char_string[:1]+' '+char_string[2:]
-            if 'imp' in snapshot:
+            if 'imp' in snapshot:  #TODO
                 for suffering in snapshot['imp']:
                     if player_name == suffering['victim']:
                         if suffering['type'] == 'cry':

@@ -1,8 +1,7 @@
 import random
-from game import make_choice
 from sys import argv
+from game import do_things, assemble_game, file_recov, player_snap_from_master, complete_archive, robot_control
 from printers import print_from_snapshot
-from snapshots import random_gamestart_snapshot, file_recov, player_snap_from_master, complete_archive
 import robots  # robot_lootup_table random_robots robot_control
 
    
@@ -58,17 +57,18 @@ else:
 snap = file_recov(game_id)
 check = 0
 if not snap:
-    snap = random_gamestart_snapshot(game_type, game_id, player_list)
+    snap = assemble_game(player_list, game_type, game_id)
+    #snapshot = assemble_game(['LittleBobby','Roomba','Bender','Rockem','Sockem'], 6, 3)
     check = 1
 snap['game'] = snap['game'][0], int(game_id[1:])  # update game_id in case
                                                     # files have split
 if check: 
     complete_archive(snap)
 elif 'choices' in snap and choice:
-    snap= make_choice(snap, choice)
+    snap= do_things(snap, choice)
     complete_archive(snap)
 
-snap = robots.robot_control(snap, robot)
+snap = robot_control(snap, robot)
 if player_id:
     snap = player_snap_from_master(snap, player_id)
 

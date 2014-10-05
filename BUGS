@@ -1,4 +1,6 @@
 RULES: Last-hit rules, pool cards?
+BUGS: Lots!
+Printer needs updating to new suff config
 
 ---------------------------------------------------------------------------
 FIXED: Games get confused about their game_id if you move their pkl files
