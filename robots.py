@@ -334,8 +334,9 @@ class Human(object):   # need something for prefs, maybe user form fillout later
         self.fac_order_pref = 'first'
         self.in_team_pref = 'mid'
         self.color_pref = ['purple', 'red', 'blue', 'green', 'yellow']
+
     def forder_vote(self, snapshot):
-        return self.fac_order_preference
+        return self.fac_order_pref
 
     def torder_vote(self, snapshot):
         return self.in_team_pref

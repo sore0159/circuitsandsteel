@@ -5,7 +5,13 @@ def abrev(name):
     if name in name_dict:
         return name_dict[name]
     else:
-        return name[:2].upper()
+        words= name.split(' ')
+        if len(words) > 1:
+            abr = words[0][0].upper()+words[1][0].upper()
+        else: 
+            abr = name[:2].upper()
+            #abr = name[0].upper()+name[-1].upper()
+        return abr
     
 
  ##################  PRINT FROM SNAPSHOT  ###################
@@ -46,7 +52,7 @@ def print_from_snapshot(snapshot):
     for player_name in snapshot['leftfaction']['players']:
         player_info = snapshot[player_name]
 
-        if player_info['spot']: 
+        if player_info['spot']:
             spot=player_info['spot']
             if spot not in tokenspots:
                 tokenspots[spot] = []
@@ -78,7 +84,7 @@ def print_from_snapshot(snapshot):
     righthands = []
     for player_name in snapshot['rightfaction']['players']:
         player_info = snapshot[player_name]
-        if player_info['spot']: 
+        if player_info['spot'] and not player_info['dragon']:  
             spot=player_info['spot']
             if spot not in tokenspots:
                 tokenspots[spot] = []
@@ -93,6 +99,21 @@ def print_from_snapshot(snapshot):
                         else:
                             char_string = char_string[0]+'!'+char_string[-1]
             tokenspots[spot].append(char_string)
+        elif player_info['spot']: # DRAGON
+            headspot = player_info['spot']
+            tokenspots[headspot] = ['\\_/','+ +', '/V\\','   ']
+            bodychars = ( ('__/',  '\\/ ', '  _'),
+                          ('\\__', ' \\/', '_WW'),
+                          ('/\\_', '  \\', '__ '),
+                          ('_/\\', '/  ',  ' __'))
+            if player_info['winded']:
+                tokenspots[player_info['spot']][1] = '> <'
+            if headspot < 18:
+                for spot in range(headspot+1, 19):
+                    tokenspots[spot] = bodychars[(spot-headspot-1)%4]
+
+            if 'imp' in snapshot and player_name in [suffering['victim'] for suffering in snapshot['imp']]:
+                tokenspots[player_info['spot']][3] = '!!!'
         else: spot = None
         #card info
         hand_str = ''
@@ -111,9 +132,6 @@ def print_from_snapshot(snapshot):
 
         #done with card prep, now token work:
         # tokenspots
-        #dragon charset:   '/V\\'   /V\
-        #optional:       ,'\\ /'    \ /
-        #                ,'\\-/'    \-/
     full_lines = ['']*4
     for i in range(1,19):
         for j in range(4):
@@ -159,7 +177,7 @@ def print_from_snapshot(snapshot):
     except:
         decklen = deck[0]
     deck_count = '%s Cards Left' % decklen
-    if deck[1]: deck_count += ' (%s Cycle Remaining)'
+    if deck[1]: deck_count += ' (%s Cycle Remaining)' % deck[1]
         #turn
     turn_str = 'Turn Order: '
     for name in snapshot['turnorder']:
@@ -169,7 +187,11 @@ def print_from_snapshot(snapshot):
             turn_str += abrev(name)+', '
     if turn_str: turn_str = turn_str[:-2]
         #all together now
-    deck_line = turn_str +' '*(width - len (deck_count+turn_str))+ deck_count
+    if len(turn_str + deck_count) > width:
+        deck_line = turn_str +l_pad
+        deck_line += ' '*(width - len (deck_count))+ deck_count
+    else:
+        deck_line = turn_str +' '*(width - len (deck_count+turn_str))+ deck_count
     print_str += deck_line+l_pad
     # player hands: count or reveal if master
         # lefthands and righthands from above
@@ -186,15 +208,17 @@ def print_from_snapshot(snapshot):
         if card_line[0] or card_line[1]: 
             print_str += card_line[0]+ ' '*(width -len(card_line[0]+card_line[1]))+card_line[1]+l_pad
     #log
+    no_pad = '\n'
+    print_str = print_str[:-len(l_pad)]+no_pad
     for i in range(5):
         if 5-i <= len(snapshot['log']):
-            print_str += snapshot['log'][-5+i]+l_pad
+            print_str += snapshot['log'][-5+i]+no_pad
     # choices available
     #print_str += snapshot['choices']
     if 'choices' in snapshot:
         snapshot['choices'][1].sort()
         print_str += snapshot['choices'][0]+"'s Options:"+l_pad
-        print_str += str(snapshot['choices'][1])+l_pad
+        print_str += str(snapshot['choices'][1])+no_pad
     return print_str
 
 def distance_str(snapshot, player_name):
@@ -205,7 +229,7 @@ def distance_str(snapshot, player_name):
         dir_strs = ('f','b')
     else:
         rival = 'leftfaction'
-        dir_strs = ('b','b')
+        dir_strs = ('b','f')
     for player in snapshot[rival]['players']:
         spot = snapshot[player]['spot']
         if spot and spot not in enemy_spots:

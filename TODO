@@ -1,29 +1,30 @@
+Total Data Structure Rewrite
+	removing Game class and affiliated objects
+	impliment action functions
+	impliment suffering choice creation
 Impliment AI
-	Incorporate AI prefs into match_gen
+	Design filter structure
 Bugtesting
 	AI should help with bugtesting
-Game Name
-	Can't keep calling it En Garde or Flash Duel, those are copyright.  Need my own name: Steel Against (On? Versus?) Steel.  Clash of Steel? Circuts and Steel?
-Temporal Display
-	Some way to see a replay of the progress of the game from gamelog or snapshots
-	just extended logstring printing for now I guess
 Integrate game on web
 	web.py? flask? Something else?
 	probably need mysql or at least shelve integration for this
         check game_id on creation vs games in progress
-ASCII ART
-	Dragon icon, Block/Hit pictures, Win/Lose pictures
+Temporal Display
+	Some way to see a replay of the progress of the game from gamelog or snapshots
+	just extended logstring printing for now I guess
 Impliment Dragon
 	Ignore Dragon Powers for now
+Web Art:
+	Block/Hit pictures, Win/Lose pictures
 Impliment Powers
 	hooooo boy will this be a job
 	Might necessitate (no spellchecker on vim!  look into that) total data structure rewrite
-Total Data Structure Rewrite
-	Can consolidate snapshot() and master_snapshot()
-	probably should do this anyway sometime, it's a mess in there
-	for now, it works, don't break it
 
   #############  DONE  #############
+	Dragon icon, 
+	Game Name: Circuits and Steel
+	Incorporate AI prefs into match_gen
 	Simple AI for now, "Little Bobby Tables"
 	More robust Gamestate-Snapshot feature (shelve, pickle?)
 	print_from_snapshot

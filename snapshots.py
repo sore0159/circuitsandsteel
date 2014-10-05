@@ -1,7 +1,7 @@
 import cPickle as pickle
 import copy
 import random
-from robots import robot_lookup_table
+#from robots import robot_lookup_table
   ##################  START SNAPSHOT GEN  ###############
 def assemble_pref_list(controller_list, game_type):
     color_list = []

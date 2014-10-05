@@ -1,5 +1,5 @@
-Tokens not aligning with players!  g23_archive has example, bobby doesn't die right
-Maybe winded status getting lost sometimes?  Keep an eye on it.
+RULES: Last-hit rules, pool cards?
+
 ---------------------------------------------------------------------------
 FIXED: Games get confused about their game_id if you move their pkl files
 FIXED: Double snapshot for player's turn

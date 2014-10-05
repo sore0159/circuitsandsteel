@@ -53,3 +53,31 @@ More AI opponents working, but not really up to speed.
 More robust AI to come
 Web interface to come
 Dragons and Powers much farther off
+
+
+Dragon Teaser:
+     ================  CIRCUITS AND STEEL  ================
+     The Future                                  Old Timers
+     0                     ==VERSUS==                     0
+                                   !!!                     
+                                   /V\  __WW__  __  __WW__ 
+                                @/ > <\/  \/  \/  \/  \/  \
+           @/    @/             @/ \_/__/\__/\__/\__/\__/\_
+     XX XX ^^ ^^ XX XX ^^ ^^ XX XX ^^ ^^ XX XX ^^ ^^ XX XX 
+        b9 08 b7 06 b5 b4 b3 b2 01    b1 b2 b3 b4 b5 b6 b7 
+     ------------------------------------------------------
+     Discard Pile: 1x6 2x6 3x5 4x6 5x2
+     Turn Order: SO, BU, >LB<, RO, RO
+                          19 Cards Left (1 Cycle Remaining)
+     SO                                        5 5 4 1 1:RO
+     BU                                                    
+     RO:2                                                  
+     LB                                                    
+f5:Rockem moved to a dark square numbered 10
+f4:Roomba moved to a light square numbered 11
+f4:Sockem moved to a dark square numbered 5
+b1:Bending Unit 22 moved to a light square numbered 3
+a1:Little Bobby Tables attacked a light square numbered 11 with 1 cards
+Roomba's Options:
+     ['p', 't']
+
