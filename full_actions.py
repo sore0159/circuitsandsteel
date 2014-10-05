@@ -1,6 +1,6 @@
-def process_choice(snapshot, choice):
+def do_things(snapshot, choice):
     if choice in snapshot['choices'][1]:
-        do_things(snapshot, choice)
+        enact_choice(snapshot, choice)
         del snapshot['choices']
         if match_over(snapshot):
             conclude_match(snapshot)
@@ -11,8 +11,7 @@ def process_choice(snapshot, choice):
     else:
         raise Exception # Choice not in available choices
 
-def do_things(snapshot, choice):
-    actor = snapshot['choices'][0]
+def enact_choice(snapshot, choice):
     choice_type = choice[0]
     if choice_type in ['r']:
     #if choice_type in ['a', 's', 'd', 'f', 'b', 'r']:
@@ -93,6 +92,7 @@ def attack(snapshot, atk_val, atk_amnt):
         if snapshot[player]['spot'] == target_spot:
             log_str += player+', '
             #  HIT THEM IN THE FACE
+    # suffering = {'can_retreat', 'can_cry', 'cards', 'victims', 'crier'}
             # TODO
     log_str = log_str[:-2]+' with %d %d-value cards.' % (atk_amnt, atk_val)
     snapshot['log'].append(log_str)
@@ -134,18 +134,21 @@ def dash(snapshot, atk_val, atk_amnt, move_dist):
     final_spot = ''
     discard(snapshot, actor, [atk_val]*atk_amnt)
     snapshot['log'].append('d'+str(move_dist)+str(atk_val)*atk_amnt+':'+actor+' retreated to spot %d!'% final_spot)
+    # suffering = {'can_retreat', 'can_cry', 'cards', 'victims', 'crier'}
 
 #############  DEFENSES  ###################
 def parry(snapshot):
     actor, en_dir, my_spot, en_fac  = action_init(snapshot)
     discard(snapshot, actor, [atk_val]*atk_amnt)
     snapshot['log'].append('p:'+actor+' parried the attack!')
+    # suffering = {'can_retreat', 'can_cry', 'cards', 'victims', 'crier'}
 
 def retreat(snapshot, dist):
     actor, en_dir, my_spot, en_fac  = action_init(snapshot)
     final_spot = ''
     discard(snapshot, actor, [atk_val]*atk_amnt)
     snapshot['log'].append('r:'+actor+' retreats to spot %d!' % final_spot)
+    # suffering = {'can_retreat', 'can_cry', 'cards', 'victims', 'crier'}
 
 def take_hit(snapshot):
     actor, en_dir, my_spot, en_fac  = action_init(snapshot)
@@ -154,11 +157,17 @@ def take_hit(snapshot):
         if suffering: # is mine:
             snapshot['imp'].remove(suffering)
     snapshot['log'].append('t:'+actor+' took the hit!')
+    # suffering = {'can_retreat', 'can_cry', 'cards', 'victims', 'crier'}
 
 def cry_for_help(snapshot, val_needed, amnt_needed):
     actor, en_dir, my_spot, en_fac  = action_init(snapshot)
+    for dist in range(min(6, len(check))):
+        for player in allies:
+            if snapshot[player]['spot'] == dist:
+                    cry_targets.append(player)  # closest to farthest
     log_str = ''
     # find the valid aiders
+    # suffering = {'can_retreat', 'can_cry', 'cards', 'victims', 'crier'}
     log_str = log_str[:-2]
     snapshot['log'].append('c'+str(val_needed)*amnt_needed+':'+actor+' calls to '+log_str+' for aid!')
 ###########  RESPONSES  #################
@@ -167,10 +176,12 @@ def deny_help(snapshot):
     actor, en_dir, my_spot, en_fac  = action_init(snapshot)
     snapshot['log'].append('x:'+actor+' denies the call for aid!')
 
+    # suffering = {'can_retreat', 'can_cry', 'cards', 'victims', 'crier'}
 def interpose(snapshot, move_dist, donate_val, donate_amnt):
     actor, en_dir, my_spot, en_fac  = action_init(snapshot)
     final_spot = ''
     victim = ''
+    # suffering = {'can_retreat', 'can_cry', 'cards', 'victims', 'crier'}
     discard(snapshot, actor, [atk_val]*atk_amnt)
     snapshot['log'].append('i'+str(abs(move_dist))+str(donate_val)*donate_amnt+':'+actor+' moved to spot %d and interposed himself before %s with %d cards!' %(final_spot, victim, donate_amount))
 

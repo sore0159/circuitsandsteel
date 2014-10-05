@@ -381,7 +381,86 @@ def action_choices(snapshot):
 
 
 def suffering_choices(snapshot):
-    pass
+    if 'imp' not in snapshot:
+        raise Exception # No suffering to analyse!
+    cry = 0
+    attks = []
+    for suffering in snapshot['imp']:
+        if suffering['crier']:
+            if cry:
+                raise Exception # Multiple cries!
+            else:
+                cry = suffering
+        else:
+            attks.append(suffering)
+    choices = []
+    if cry:
+        # deny
+        choices.append('x')
+        # interpose
+        dash_spot = snapshot[cry['crier']]['spot']
+        actor = cry['victims'][0]
+        my_spot = snapshot[actor]['spot']
+        my_cards = snapshot[actor]['cards']
+        dist = abs(dash_spot - my_spot)
+        needed = cry['cards'] + [dist]
+        if needed < my_cards:
+            choices.append('i'+str(dist)+str(needed[0])*len(needed-1))
+    else:
+        #pick the best
+        # furthest back, then turn order
+        victim = (0, [(0,0)])
+        for i in len(attks):
+            target = attack['victims']
+            dist_from_en = 0
+            if dist_from_en > victim[0]:
+                victim[0] = dist_from_en
+                victim[1] = [(target,i)]
+            if dist_from_en == victim[0]:
+                victim[1].append((target,i))
+        target = (0,20, 10)
+        for j in victim[1]:
+            check_guy, suff_index = j[0], j[1]
+            check_order = snapshot['turnorder'].index(check_guy)
+            if check_order < target[1]: target = (check_guy, check_order, suff_index)
+        attack = attks[target[2]]
+        # now analyze:
+        actor = attack['victims']
+        my_spot = snapshot[actor]['spot']
+        my_cards = snapshot[actor]['cards']
+        counted_cards = [None, 0, 0, 0, 0, 0]
+        for i in my_cards:
+            counted_cards[i] += 1
+        # takehit
+        choices.append('t')
+        # retreat
+        if attack['can_retreat'] and my_spot not in [1,18]:
+            for card in range(1,6):
+                if counted_cards[card]:
+                    choices.append('r'+str(card))
+        # parry
+        needed = attack['cards']
+        if counted_cards[needed[0]] >= len(needed):
+            choices.append('p')
+        # cry
+        if attack['can_cry']:
+            can_cry = 0
+            if actor in snapshot['leftfaction']['players']: 
+                check = range(max(1, my_spot-5),my_spot+1)
+                allies = snapshot['leftfaction']['players']
+            else: 
+                check = range(my_spot, min(my_spot + 6, 19))
+                allies = snapshot['rightfaction']['players']
+            for player in allies:
+                if snapshot[player]['spot'] in check:
+                    can_cry = 1
+                    break
+            if can_cry:
+                min_needed = max(len(needed)-counted_cards[needed[0]], 0)
+                for i in range(min_needed, len(needed)+1):
+                    choices.append('c'+str(needed[0])*i)
+    snapshot['choices'] = (actor, choices)
+
 
 def refresh(snapshot, player):
     snapshot[player]['winded'] = 0
