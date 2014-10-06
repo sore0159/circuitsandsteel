@@ -12,6 +12,8 @@ player_id = None
 choice = None
 robot = ''
 player_list = ['human']+robots.random_robots(4)
+#player_list = ['human']*5
+#player_list = ['LittleBobby']+robots.random_robots(3)
 try:
     if argv[1] == 'robots':
         game_id = 'g2714'
@@ -57,8 +59,8 @@ else:
 snap = file_recov(game_id)
 check = 0
 if not snap:
+    #snap = assemble_game(player_list, 4, game_id)
     snap = assemble_game(player_list, game_type, game_id)
-    #snapshot = assemble_game(['LittleBobby','Roomba','Bender','Rockem','Sockem'], 6, 3)
     check = 1
 snap['game'] = snap['game'][0], int(game_id[1:])  # update game_id in case
                                                     # files have split

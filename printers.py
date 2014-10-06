@@ -59,21 +59,20 @@ def print_from_snapshot(snapshot):
             char_string = '@/ '
             if player_info['winded'] and player_name != snapshot['whosturn']:
                 char_string = char_string[:1]+' '+char_string[2:]
-            if 'imp' in snapshot:  #TODO
-                for suffering in snapshot['imp']:
-                    if player_name == suffering['victim']:
-                        if suffering['type'] == 'cry':
-                            char_string = char_string[:-1]+'?'
-                        else:
-                            char_string = '!'+char_string[1:]
+            for suffering in snapshot['imp']:
+                if player_name in suffering['victims']:
+                    if suffering['crier']:
+                        char_string = char_string[:-1]+'?'
+                    else:
+                        char_string = '!'+char_string[1:]
             tokenspots[spot].append(char_string)
         else: spot = None
         #card prep
         hand_str = abrev(player_name)+':'
         if 'cards' in player_info: cards = player_info['cards']
         elif 'mycards' in snapshot and snapshot['mycards'][0] == player_name: cards = snapshot['mycards'][1]
-        else: cards = 0
-        if cards:
+        else: cards = -1
+        if cards != -1:
             for card in cards:
                 hand_str += str(card)+' '
         else: 
@@ -91,13 +90,12 @@ def print_from_snapshot(snapshot):
             char_string = '\\@ '
             if player_info['winded'] and player_name != snapshot['whosturn']:
                 char_string = ' '+char_string[1:]
-            if 'imp' in snapshot:
-                for suffering in snapshot['imp']:
-                    if player_name == suffering['victim']:
-                        if suffering['type'] == 'cry':
-                            char_string = char_string[:-1]+'?'
-                        else:
-                            char_string = char_string[0]+'!'+char_string[-1]
+            for suffering in snapshot['imp']:
+                if player_name in suffering['victims']:
+                    if suffering['crier']:
+                        char_string = char_string[:-1]+'?'
+                    else:
+                        char_string = char_string[0]+'!'+char_string[-1]
             tokenspots[spot].append(char_string)
         elif player_info['spot']: # DRAGON
             headspot = player_info['spot']
@@ -112,7 +110,8 @@ def print_from_snapshot(snapshot):
                 for spot in range(headspot+1, 19):
                     tokenspots[spot] = bodychars[(spot-headspot-1)%4]
 
-            if 'imp' in snapshot and player_name in [suffering['victim'] for suffering in snapshot['imp']]:
+            if player_name in [suffering['victims'][0] for suffering in snapshot['imp']]:
+
                 tokenspots[player_info['spot']][3] = '!!!'
         else: spot = None
         #card info

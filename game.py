@@ -91,6 +91,7 @@ def assemble_game(player_list=['human']*5, game_type=0, game_id=0 ):
         player['winded'] = 0
         player['cards'] = []
         player['spot'] = None
+        snapshot['imp'] = []
         snapshot[player['name']] = player
         del player['name']
 
@@ -196,7 +197,7 @@ def faction_name_vote(snapshot):
         else:
             snapshot['leftfaction']['name']= defaults[0]
     # if both sides care:
-    elif name_suggestions['l'] == name_suggestions['r'] and len(name_suggestions['l']) == 1:  # but they both only want the same one name
+    elif name_suggestions['l'] == name_suggestions['r'] and len(set(name_suggestions['l'])) == 1:  # but they both only want the same one name
         if name_suggestions['l'][0] == defaults[0]:
             defaults = [name_suggestions['l'][0], defaults[1]]
         else:
@@ -287,6 +288,8 @@ def start_match(snapshot, lastwinner=''):
             player['spot'] = 18
     snapshot['deck'] = (deck, cycles)
     snapshot['grave'] = []
+    snapshot['imp'] = []
+    if 'choices' in snapshot: del snapshot['choices']
     action_choices(snapshot)
     return snapshot
 
@@ -344,11 +347,8 @@ def action_choices(snapshot):
     choices = []
     player = snapshot['whosturn']
     my_spot = snapshot[player]['spot']
-    if player in snapshot['leftfaction']['players']:
-        enemies = snapshot['rightfaction']['players']
-    else:
-        enemies = snapshot['leftfaction']['players']
-    dist_list = [abs(my_spot - snapshot[enemy]['spot']) for enemy in enemies]
+    en_spots = en_spot_list(snapshot, player)
+    dist_list = [abs(my_spot - en_spot) for en_spot in en_spots]
     card_count = [None, 0, 0, 0, 0, 0]
     cards = snapshot[player]['cards']
     for card in cards:
@@ -382,7 +382,7 @@ def action_choices(snapshot):
 
 
 def suffering_choices(snapshot):
-    if 'imp' not in snapshot:
+    if not snapshot['imp']:
         raise Exception # No suffering to analyse!
     cry = 0
     attks = []
@@ -405,29 +405,36 @@ def suffering_choices(snapshot):
         my_cards = snapshot[actor]['cards']
         dist = abs(dash_spot - my_spot)
         needed = cry['cards'] + [dist]
-        if needed < my_cards:
-            choices.append('i'+str(dist)+str(needed[0])*len(needed-1))
+        card_copy = my_cards[:]
+        try:
+            for card in needed:
+                card_copy.remove(card)
+            choices.append('i'+str(dist)+str(needed[0])*(len(needed)-1))
+        except ValueError:
+            pass
     else:
         #pick the best
         # furthest back, then turn order
-        victim = (0, [])
+        victim = [20, []]
         for i in range(len(attks)):
-            target = attks[i]['victims']
-            dist_from_en = 0
-            if dist_from_en > victim[0]:
-                victim[0] = dist_from_en
+            target = attks[i]['victims'][0]
+            victim_spot = snapshot[target]['spot']
+            if target in snapshot['leftfaction']['players']: victim_home = 1
+            else: victim_home = 18
+            dist_from_home = abs(victim_spot - victim_home)
+            if dist_from_home < victim[0]:  # furthest back is closest to home
+                victim[0] = dist_from_home
                 victim[1] = [(target,i)]
-            if dist_from_en == victim[0]:
+            elif dist_from_home == victim[0]:
                 victim[1].append((target,i))
-        target = (0,20, 10)
+        target = [0,20, 10]
         for j in victim[1]:
             check_guy, suff_index = j[0], j[1]
             check_order = snapshot['turnorder'].index(check_guy)
             if check_order < target[1]: target = (check_guy, check_order, suff_index)
-        print attks, target[2]
         attack = attks[target[2]]
         # now analyze:
-        actor = attack['victims']
+        actor = attack['victims'][0]
         my_spot = snapshot[actor]['spot']
         my_cards = snapshot[actor]['cards']
         counted_cards = [None, 0, 0, 0, 0, 0]
@@ -454,11 +461,11 @@ def suffering_choices(snapshot):
                 check = range(my_spot, min(my_spot + 6, 19))
                 allies = snapshot['rightfaction']['players']
             for player in allies:
-                if snapshot[player]['spot'] in check:
+                if player != actor and snapshot[player]['spot'] and snapshot[player]['spot'] in check:
                     can_cry = 1
                     break
             if can_cry:
-                min_needed = max(len(needed)-counted_cards[needed[0]], 0)
+                min_needed = max(len(needed)-counted_cards[needed[0]], 1)
                 for i in range(min_needed, len(needed)+1):
                     choices.append('c'+str(needed[0])*i)
     snapshot['choices'] = (actor, choices)
@@ -470,33 +477,38 @@ def refresh(snapshot, player):
     if game_type in [4,5,6] and not snapshot[player]['dragon']:
         if player == snapshot['turnorder'][-2]:
             for ally in snapshot['leftfaction']['players']:
-                refill_hand(snapshot, ally)
+                    refill_hand(snapshot, ally)
     else:
         refill_hand(snapshot, player)
 
 def refill_hand(snapshot, player):
-    game_type = snapshot['game'][0]
-    dragon = snapshot[player]['dragon']
-    hand = snapshot[player]['cards']
-    hand_len = len(hand)
-    deck = snapshot['deck'][0]
-    if not dragon:
-        max_hand = 5
-    else:
-        max_hand = game_type + 3
-    if hand_len > max_hand: hand_len = max_hand
-    elif max_hand - hand_len > len(deck): hand_len= max_hand-len(deck)
-    for i in range(max_hand-hand_len):
-        hand.append(deck.pop())
+    if snapshot[player]['health']:
+        game_type = snapshot['game'][0]
+        dragon = snapshot[player]['dragon']
+        hand = snapshot[player]['cards']
+        hand_len = len(hand)
+        deck = snapshot['deck'][0]
+        if not dragon:
+            max_hand = 5
+        else:
+            max_hand = game_type + 3
+        if hand_len > max_hand: hand_len = max_hand
+        elif max_hand - hand_len > len(deck): hand_len= max_hand-len(deck)
+        for i in range(max_hand-hand_len):
+            hand.append(deck.pop())
+        snapshot[player]['num_cards'] = len(hand)
 
 def end_turn(snapshot):
-    if 'imp' in snapshot or 'choices' in snapshot:
+    if snapshot['imp'] or 'choices' in snapshot:
         raise Exception # Turn is not over yet!
     cur_player = snapshot['whosturn']
     turn_order = snapshot['turnorder']
-    snapshot[cur_player]['winded'] = 1  # Just for a second
+    tic = 0
 
-    while snapshot[cur_player]['winded'] and not match_over(snapshot):
+    while (not tic or snapshot[cur_player]['winded']) and not match_over(snapshot):
+        if snapshot[cur_player]['winded'] and tic:
+            snapshot['log'].append(cur_player+' spends his turn catching his breath and recovering.')
+        tic = 1
         refresh(snapshot, cur_player)
         #who's next?
         if cur_player == turn_order[-1]:
@@ -575,19 +587,21 @@ def conclude_game(snapshot):
         snapshot['log'].append('%s Win the game, %d to %d!' % (winner, r_score, l_score))
     else:
         raise Exception # How did the game get called?
-    if choices in snapshot: del snapshot['choices']
-    if imp in snapshot: del snapshot['imp']
+    if 'choices' in snapshot: del snapshot['choices']
+    snapshot['imp'] = []
 
 def timeout(snapshot):
+    snapshot['log'].append('The match has timed out!')
     # last hits
     hit_dict = {'l':{}, 'r':{}}
     for faction in ['leftfaction', 'rightfaction']:
         for player in snapshot[faction]['players']:
             use_dict = hit_dict[faction[0]]
             spot = snapshot[player]['spot']
-            if spot not in use_dict: use_dict[spot] = {'cards':[],'players':[]}
-            use_dict[spot]['cards'] += snapshot[player]['cards']
-            use_dict[spot]['players'].append(player)
+            if spot:
+                if spot not in use_dict: use_dict[spot] = {'cards':[],'players':[]}
+                use_dict[spot]['cards'] += snapshot[player]['cards']
+                use_dict[spot]['players'].append(player)
     for l in hit_dict['l']:
         for r in hit_dict['r']:
             dist = r - l
@@ -595,13 +609,23 @@ def timeout(snapshot):
             l_count = l_spot['cards'].count(dist)
             r_count = r_spot['cards'].count(dist)
             if l_count > r_count: 
-                snapshot['log'].append('Spot %s last-hits spot %s' %(l,r))
+                log_str = ''
                 for player in r_spot['players']:
                     snapshot[player]['health'] -= 1
+                    if snapshot[player]['health'] < 1:
+                        player_die(snapshot, player)
+                    log_str += player+', '
+                log_str = log_str[:-2]
+                snapshot['log'].append('Spot %s last-hits %s at spot %s' %(l, log_str,r))
             elif r_count > l_count:
-                snapshot['log'].append('Spot %s last-hits spot %s' %(r,l))
+                log_str = ''
                 for player in l_spot['players']:
                     snapshot[player]['health'] -= 1
+                    if snapshot[player]['health'] < 1:
+                        player_die(snapshot, player)
+                    log_str += player+', '
+                log_str = log_str[:-2]
+                snapshot['log'].append('Spot %s last-hits %s at spot %s' %(r, log_str,l))
     # both sides still up?
     rival = {'l':'r', 'r':'l'}
     match_winner = 0
@@ -609,7 +633,7 @@ def timeout(snapshot):
         alive = 0
         for player in snapshot[faction]['players']:
             alive += snapshot[player]['health']
-        if alive < 0:
+        if alive < 1:
             if match_winner:
                match_winner = 't'  # Double KO!  (Check rules on this)
             else:
@@ -617,8 +641,18 @@ def timeout(snapshot):
     # who's the farthest
     if not match_winner:
         snapshot['log'].append('The match is decided by distance!')
-        l_best = max([snapshot[player]['spot'] for player in snapshot['leftfaction']['players']])
-        r_best = max([(19 - snapshot[player]['spot']) for player in snapshot['rightfaction']['players']])
+        l_spots = []
+        for player in snapshot['leftfaction']['players']:
+            p_info = snapshot[player]
+            if p_info['health']>0:
+                l_spots.append(p_info['spot'])
+        l_best = max(l_spots)
+        r_spots = []
+        for player in snapshot['rightfaction']['players']:
+            p_info = snapshot[player]
+            if p_info['health']>0:
+                r_spots.append(p_info['spot'])
+        r_best = 19-min(r_spots)
         if l_best > r_best: match_winner = 'l'
         elif l_best < r_best: match_winner = 'r'
         else: match_winner = 't'
@@ -745,7 +779,7 @@ def do_things(snapshot, choice):
         del snapshot['choices']
         if match_over(snapshot):
             conclude_match(snapshot)
-        elif 'imp' in snapshot:
+        elif snapshot['imp']:
             suffering_choices(snapshot)
         else:
             end_turn(snapshot)
@@ -824,18 +858,37 @@ def discard(snapshot, player, cards):
     for card in cards:
         hand.remove(card)
         snapshot['grave'].append(card)
+    snapshot[player]['num_cards'] = len(hand)
+
+def en_spot_list(snapshot, player):
+    if player in snapshot['leftfaction']['players']:
+        enemies = snapshot['rightfaction']['players']
+    else:
+        enemies = snapshot['leftfaction']['players']
+    en_spot_list = [snapshot[enemy]['spot'] for enemy in enemies]
+    while None in en_spot_list:
+        en_spot_list.remove(None)
+    return en_spot_list
+
+def player_die(snapshot, player):
+    hand = snapshot[player]['cards']
+    for card in hand[:]:
+        hand.remove(card)
+        snapshot['grave'].append(card)
+    snapshot[player]['num_cards'] = 0
+    snapshot[player]['spot'] = None
+    if player in snapshot['turnorder']: snapshot['turnorder'].remove(player)
 
 ###############  ACTIONS  ##################
 def attack(snapshot, atk_val, atk_amnt):
     actor, en_dir, my_spot, en_fac  = action_init(snapshot)
     target_spot = my_spot + atk_val*en_dir
     log_str = 'a'+str(atk_val)*atk_amnt+':'+actor+' attacked '
-    snapshot['imp'] = []
     for player in snapshot[en_fac]['players']:
         if snapshot[player]['spot'] == target_spot:
             log_str += player+', '
             #  HIT THEM IN THE FACE
-            suffering = {'can_retreat':0, 'can_cry':1,'cards':[atk_val]*atk_amnt, 'victims':player, 'crier':0}
+            suffering = {'can_retreat':0, 'can_cry':1,'cards':[atk_val]*atk_amnt, 'victims':[player], 'crier':0}
             snapshot['imp'].append(suffering)
     log_str = log_str[:-2]+' with %d %d-value cards.' % (atk_amnt, atk_val)
     snapshot['log'].append(log_str)
@@ -858,10 +911,10 @@ def shove(snapshot, dist):
 
 def move(snapshot, dist):
     actor, en_dir, my_spot, en_fac  = action_init(snapshot)
-    en_player_spots = [snapshot[enemy]['spot'] for enemy in snapshot[en_fac]['players']]
+    en_spots = en_spot_list(snapshot, actor)
     for i in range(abs(dist)):
         test_spot = my_spot + dist/abs(dist)
-        if test_spot in en_player_spots+[0,19]:
+        if test_spot in en_spots+[0,19]:
             break
         else:
             my_spot = test_spot
@@ -877,13 +930,14 @@ def dash(snapshot, atk_val, atk_amnt, move_dist):
     actor, en_dir, my_spot, en_fac  = action_init(snapshot)
     # Dash!
     discard(snapshot, actor, [move_dist]+[atk_val]*atk_amnt)
-    en_player_spots = [snapshot[enemy]['spot'] for enemy in snapshot[en_fac]['players']]
+    en_spots = en_spot_list(snapshot, actor)
     final_spot = my_spot
     for i in range(move_dist):
-        if final_spot + en_dir in en_player_spots+[0,19]:
+        if final_spot + en_dir in en_spots+[0,19]:
             break
         else:
             final_spot += en_dir
+    snapshot[actor]['spot'] = final_spot
     # Strike!
     target_spot = final_spot + atk_val*en_dir
     log_str = ''
@@ -891,16 +945,17 @@ def dash(snapshot, atk_val, atk_amnt, move_dist):
         if snapshot[player]['spot'] == target_spot:
             log_str += player+', '
             #  HIT THEM IN THE FACE
-            suffering = {'can_retreat':1, 'can_cry':1,'cards':[atk_val]*atk_amnt, 'victims':player, 'crier':0}
-            snapshot['imp'] = [suffering]
-    snapshot['log'].append('d'+str(move_dist)+str(atk_val)*atk_amnt+':'+actor+' retreated to spot %d!'% final_spot)
+            suffering = {'can_retreat':1, 'can_cry':1,'cards':[atk_val]*atk_amnt, 'victims':[player], 'crier':0}
+            snapshot['imp'].append(suffering)
+    log_str = log_str[:-2]
+    snapshot['log'].append('d'+str(move_dist)+str(atk_val)*atk_amnt+':'+actor+' dashed to spot %d and struck at %s with %d cards!'% (final_spot, log_str, atk_amnt))
 
 #############  DEFENSES  ###################
 def parry(snapshot):
     actor, en_dir, my_spot, en_fac  = action_init(snapshot)
     snapshot['log'].append('p:'+actor+' parried the attack!')
     for suffering in snapshot['imp']:
-        if snapshot['victims'] == actor:
+        if not suffering['crier'] and actor in suffering['victims']:
             discard(snapshot, actor, suffering['cards'])
             snapshot['imp'].remove(suffering)
             break
@@ -914,30 +969,35 @@ def retreat(snapshot, dist):
     discard(snapshot, actor, [dist])
     snapshot[actor]['spot'] = final_spot
     for suffering in snapshot['imp']:
-        if suffering['victims'] == actor:
+        if not suffering['crier'] and actor in suffering['victims']:
             snapshot['imp'].remove(suffering)
             break
-    snapshot['log'].append('r:'+actor+' retreats to spot %d!' % final_spot)
+    snapshot['log'].append('r'+str(dist)+':'+actor+' retreated to spot %d!' % final_spot)
 
 def take_hit(snapshot):
     actor, en_dir, my_spot, en_fac  = action_init(snapshot)
     snapshot['log'].append('t:'+actor+' took the hit!')
-    snapshot[actor]['health'] += 1
+    snapshot[actor]['health'] -= 1
     if snapshot[actor]['health'] < 1:
-        snapshot[actor]['spot'] = None
         log_str = actor+' is out of the match!'
+        player_die(snapshot, actor)
+
     else:
-        log_str = actor+' is too tough to be beaten so easily!  He has %d hits left to go!' % snapshot[actor]['health']
+        plural_string = ''
+        if snapshot[actor]['health'] > 1: plural_string = 's'
+        log_str = actor+' is too tough to be beaten so easily!  He has %d hit%s left to go!' % (snapshot[actor]['health'], plural_string)
     for suffering in snapshot['imp']:
-        if suffering['victims'] == actor: # is mine:
+        if not suffering['crier'] and actor in suffering['victims']:
             snapshot['imp'].remove(suffering)
             break
+    snapshot['log'].append(log_str)
+
 
 def cry_for_help(snapshot, val_needed, amnt_needed):
     actor, en_dir, my_spot, en_fac  = action_init(snapshot)
     # find the source attack
     for suffering in snapshot['imp']:
-        if suffering['victims'] == actor:
+        if not suffering['crier'] and actor in suffering['victims']:
             atk_suff = suffering
     # pre-discard your contrib - dragons can't call for help
     # so you're parring or discarding all either way
@@ -947,18 +1007,19 @@ def cry_for_help(snapshot, val_needed, amnt_needed):
     atk_suff['can_cry'] = 0
     # find the valid aiders
     log_str = ''
-    if en_fac == 1:
+    if en_fac[0] == 'r':
         allies = snapshot['leftfaction']['players']
         check = range(1, my_spot+1)
+        check.reverse()
     else:
         allies = snapshot['rightfaction']['players']
         check = range(my_spot, 19)
     cry_targets = []
-    for dist in range(min(6, len(check))):
+    for dist in check[:(min(6, len(check)))]:
         for player in allies:
-            if snapshot[player]['spot'] == dist:
+            if snapshot[player]['spot'] == dist and player != actor:
                     cry_targets.append(player)  # closest to farthest
-                    log_str += player
+                    log_str += player+', '
     log_str = log_str[:-2]
     # ask them for help
     suffering = {'can_retreat':0, 'can_cry':0,'cards':[val_needed]*amnt_needed, 'victims':cry_targets, 'crier':actor}
@@ -985,7 +1046,7 @@ def interpose(snapshot, move_dist, donate_val, donate_amnt):
             break
     crier = cry_suff['crier']
     for suffering in snapshot['imp']:
-        if suffering['victims'] == crier:
+        if suffering['victims'] == [crier]:
             atk_suff = suffering
             break
     # go there and help

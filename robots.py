@@ -301,7 +301,7 @@ class EyeRobot(Robot):
   ##################### END REFERENCE HUMOR ###################
 class Human(object):   # need something for prefs, maybe user form fillout later
     def __init__(self):
-        self.name = 'Player One'
+        self.name = 'Player'
         self.faction='Humans Rule'
         self.fac_order_pref = 'first'
         self.in_team_pref = 'mid'

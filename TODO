@@ -1,7 +1,3 @@
-Total Data Structure Rewrite
-	removing Game class and affiliated objects
-	impliment action functions
-	impliment suffering choice creation
 Impliment AI
 	Design filter structure
 Bugtesting
@@ -13,8 +9,11 @@ Integrate game on web
 Temporal Display
 	Some way to see a replay of the progress of the game from gamelog or snapshots
 	just extended logstring printing for now I guess
+Stats Tracking
+	Track filter competence, robot win/loss ratios
 Impliment Dragon
 	Ignore Dragon Powers for now
+	Dragon Extra Turn on Kill
 Web Art:
 	Block/Hit pictures, Win/Lose pictures
 Impliment Powers
@@ -22,7 +21,10 @@ Impliment Powers
 	Might necessitate (no spellchecker on vim!  look into that) total data structure rewrite
 
   #############  DONE  #############
-	Dragon icon, 
+	removing Game class and affiliated objects
+	impliment action functions
+	impliment suffering choice creation
+	Dragon icon, Dragon health
 	Game Name: Circuits and Steel
 	Incorporate AI prefs into match_gen
 	Simple AI for now, "Little Bobby Tables"
