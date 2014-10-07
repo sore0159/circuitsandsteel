@@ -1,8 +1,7 @@
 RULES: Last-hit rules, pool cards?
-BUGS: Lots!
-Printer needs updating to new suff config
 
 ---------------------------------------------------------------------------
+FIXED: Deck doesn't recycle on runout for large games
 FIXED: Games get confused about their game_id if you move their pkl files
 FIXED: Double snapshot for player's turn
 FIXED: Checking 2nd faction time-out last blows can't find enemy_dir if they're all dead (HACK FIX)

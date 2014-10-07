@@ -1,8 +1,6 @@
-import cPickle as pickle
 import copy
 import random
 from robots import robot_lookup_table
-import printers
 
 
   ##################  START SNAPSHOT GEN  ###############
@@ -492,9 +490,16 @@ def refill_hand(snapshot, player):
             max_hand = 5
         else:
             max_hand = game_type + 3
-        if hand_len > max_hand: hand_len = max_hand
-        elif max_hand - hand_len > len(deck): hand_len= max_hand-len(deck)
-        for i in range(max_hand-hand_len):
+        to_draw = max_hand - hand_len
+        if to_draw < 0: to_draw = 0
+        elif to_draw > len(deck) and not snapshot['deck'][1]: to_draw= len(deck)
+        elif to_draw > len(deck):
+            to_draw = len(deck)
+            hand += deck
+            snapshot['deck'] = (snapshot['grave'], 0)
+            snapshot['grave'] = []
+            random.shuffle(deck)
+        for i in range(to_draw):
             hand.append(deck.pop())
         snapshot[player]['num_cards'] = len(hand)
 
@@ -659,118 +664,6 @@ def timeout(snapshot):
     return match_winner # 'r', 'l', 't'
 
   ##################  END SNAPSHOT PROCESSING  #############
-
-   ###################  BEGIN ROBOT INTERFACE PROTOCOL  ##################
-def robot_control(snapshot, flag=''):
-    if 'choices' in snapshot:
-        controller = snapshot[snapshot['choices'][0]]['controller']
-    else:
-        controller = 'human'
-    while controller != 'human':
-        print "CONTROLLER: ", controller
-        if controller in robot_lookup_table:
-            robot_name = snapshot['choices'][0]
-            robot_snap = player_snap_from_master(snapshot, robot_name)
-            robot = robot_lookup_table[controller]()
-            robot_choice = robot.make_choice(robot_snap)
-            print "%s CHOICE: %s"%(robot_name, robot_choice)
-            snapshot = do_things(snapshot, robot_choice)
-            complete_archive(snapshot)
-            if flag: print printers.print_from_snapshot(snapshot)
-            if 'choices' in snapshot:
-                controller = snapshot[snapshot['choices'][0]]['controller']
-            else:
-                controller = 'human'
-        else:
-            print '\n+++++\n'+controller+'\n++++++\n'
-            raise Exception # Bad Robot Type
-    print "CONTROLLER: ", controller
-    return snapshot
-   ###################  END ROBOT INTERFACE PROTOCOL  ##################
-
-#################  START LOGGING/DIPLAY FUNCTIONALITY  ####################
-def player_snap_from_master(master_snap, player_name=''):
-    if player_name.isdigit():
-        name_dict = names_from_ids(master_snap)
-        p_id = int(player_name)
-        if p_id in name_dict:
-            player_name = name_dict[p_id]
-        else:
-            player_name = 'p0'
-    snapshot = copy.deepcopy(master_snap)  # hope this works
-    if 'choices' in snapshot and player_name != snapshot['choices'][0]:
-        del snapshot['choices']
-    for faction in ['leftfaction','rightfaction']:
-        for player in snapshot[faction]['players']:
-            player_info = snapshot[player]
-            if player == player_name:
-                snapshot['mycards'] = (player, player_info['cards'])
-            else:
-                del snapshot[player]['id_num']
-            del player_info['cards']
-    return snapshot
-    
-
-def names_from_ids(mastersnapshot):
-    id_dict = {}
-    for player in full_player_list(mastersnapshot):
-        id_dict[mastersnapshot[player]['id_num']] = player
-    return id_dict
-
-
- ################  START FILE PICKLING  #################
-def file_snap(snapshot, game_id='', player_id=-1):
-    if player_id != -1: 
-        player_id = str(player_id)
-        if player_id.isdigit(): player_id = 'p'+player_id
-    else:
-        player_id = ''
-    if not game_id:
-        game_id=snapshot['game'][1]
-    game_id = str(game_id)
-    if game_id.isdigit() : game_id = 'g'+game_id
-    archive_file = 'data/'+game_id+player_id+'_archive.pkl'
-    #print "Reading File: " + archive_file
-    try:
-        check2_file = open(archive_file, 'rb')
-        archive_list = pickle.load(check2_file)
-        check2_file.close()
-        #print "File Read!"
-    except IOError:
-        archive_list = []
-    archive_list.append(snapshot)
-    #print "Writing File: " + archive_file
-    log_file = open(archive_file, 'wb')
-    pickle.dump(archive_list, log_file, -1)
-    log_file.close()
-
-def file_recov(game_id='g0'):
-    archive_file = 'data/'+str(game_id)+'_archive.pkl'
-    #print "Reading File: " + archive_file
-    try:
-        snap_file = open(archive_file, 'rb')
-        snapshot_list = pickle.load(snap_file)
-        snapshot = snapshot_list[-1]
-        #print "File Read!"
-    except IOError: snapshot = 0
-    return snapshot
-
-def player_snap_files(snapshot):
-    game_id = 'g'+str(snapshot['game'][1])
-    for faction in ['leftfaction', 'rightfaction']:
-        for player in snapshot[faction]['players']:
-            player_info = snapshot[player]
-            player_id = player_info['id_num']
-            player_snap = player_snap_from_master(snapshot, player)
-            file_snap(player_snap, game_id, player_id)
-    snapshot = player_snap_from_master(snapshot)
-    file_snap(snapshot, game_id, 'p0')
-
-def complete_archive(snapshot):
-    file_snap(snapshot)
-    player_snap_files(snapshot)
- ################  END FILE PICKLING  #################
-#################  END LOGGING/DIPLAY FUNCTIONALITY  ####################
 
  ################### START ACTION FUNCTIONS #######################
 def do_things(snapshot, choice):
@@ -1060,3 +953,37 @@ def interpose(snapshot, move_dist, donate_val, donate_amnt):
     snapshot['log'].append('i'+str(abs(move_dist))+str(donate_val)*donate_amnt+':'+actor+' moved to spot %d and interposed himself before %s with %d cards!' %(final_spot, crier, donate_amnt))
 
  #################### END ACTION FUNCTIONS ####################
+
+#################  START LOGGING/DIPLAY FUNCTIONALITY  ####################
+def player_snap_from_master(master_snap, player_name=''):
+    if player_name.isdigit():
+        name_dict = names_from_ids(master_snap)
+        p_id = int(player_name)
+        if p_id in name_dict:
+            player_name = name_dict[p_id]
+        else:
+            player_name = 'p0'
+    snapshot = copy.deepcopy(master_snap)  # hope this works
+    if 'choices' in snapshot and player_name != snapshot['choices'][0]:
+        del snapshot['choices']
+    for faction in ['leftfaction','rightfaction']:
+        for player in snapshot[faction]['players']:
+            player_info = snapshot[player]
+            if player == player_name:
+                snapshot['mycards'] = (player, player_info['cards'])
+            else:
+                del snapshot[player]['id_num']
+            del player_info['cards']
+    return snapshot
+    
+
+def names_from_ids(mastersnapshot):
+    id_dict = {}
+    for player in full_player_list(mastersnapshot):
+        id_dict[mastersnapshot[player]['id_num']] = player
+    return id_dict
+
+
+#################  END LOGGING/DIPLAY FUNCTIONALITY  ####################
+
+

@@ -1,5 +1,7 @@
+Command Line Options
+	allow command line AI selection
 Impliment AI
-	Design filter structure
+	Design filter structure, file reading
 Bugtesting
 	AI should help with bugtesting
 Integrate game on web
@@ -21,6 +23,7 @@ Impliment Powers
 	Might necessitate (no spellchecker on vim!  look into that) total data structure rewrite
 
   #############  DONE  #############
+	consolidated file logging into one spot: good for performance, bad for debugging
 	removing Game class and affiliated objects
 	impliment action functions
 	impliment suffering choice creation

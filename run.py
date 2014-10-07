@@ -1,8 +1,10 @@
 import random
 from sys import argv
-from game import do_things, assemble_game, file_recov, player_snap_from_master, complete_archive, robot_control
+from game import do_things, assemble_game, player_snap_from_master
 from printers import print_from_snapshot
+from storage import file_recov, file_snap
 import robots  # robot_lootup_table random_robots robot_control
+import copy
 
    
    ###################   BEGIN SCRIPTING CONTROL  ####################
@@ -13,7 +15,7 @@ choice = None
 robot = ''
 player_list = ['human']+robots.random_robots(4)
 #player_list = ['human']*5
-#player_list = ['LittleBobby']+robots.random_robots(3)
+#player_list = ['LittleBobby']+robots.random_robots(4)
 try:
     if argv[1] == 'robots':
         game_id = 'g2714'
@@ -51,6 +53,8 @@ if not game_id:
 
 if game_id == 'g10':
     game_type = 0
+elif game_id == 'g60':
+    game_type = 6
 else:
     game_type = 1
 
@@ -58,6 +62,7 @@ else:
         ############### IT HAS BEGUN ################
 snap = file_recov(game_id)
 check = 0
+to_archive = []
 if not snap:
     #snap = assemble_game(player_list, 4, game_id)
     snap = assemble_game(player_list, game_type, game_id)
@@ -65,12 +70,15 @@ if not snap:
 snap['game'] = snap['game'][0], int(game_id[1:])  # update game_id in case
                                                     # files have split
 if check: 
-    complete_archive(snap)
+    to_archive.append(copy.deepcopy(snap))
 elif 'choices' in snap and choice:
     snap= do_things(snap, choice)
-    complete_archive(snap)
+    to_archive.append(copy.deepcopy(snap))
 
-snap = robot_control(snap, robot)
+to_archive.extend(robots.robot_control(snap, robot))
+if to_archive:
+    file_snap(to_archive)
+    snap = to_archive[-1]
 if player_id:
     snap = player_snap_from_master(snap, player_id)
 

@@ -1,8 +1,36 @@
 import random
-#from snapshots import complete_archive, player_snap_from_master
-#import printers
-#import snapshots  # robot_control function uses these
-#import game
+import printers
+import game
+import copy
+
+   ###################  BEGIN ROBOT INTERFACE PROTOCOL  ##################
+def robot_control(snapshot, flag=''):
+    snapshot_list = []
+    if 'choices' in snapshot:
+        controller = snapshot[snapshot['choices'][0]]['controller']
+    else:
+        controller = 'human'
+    while controller != 'human':
+        print "CONTROLLER: ", controller
+        if controller in robot_lookup_table:
+            robot_name = snapshot['choices'][0]
+            robot_snap = game.player_snap_from_master(snapshot, robot_name)
+            robot = robot_lookup_table[controller]()
+            robot_choice = robot.make_choice(robot_snap)
+            print "%s CHOICE: %s"%(robot_name, robot_choice)
+            snapshot = game.do_things(snapshot, robot_choice)
+            snapshot_list.append(copy.deepcopy(snapshot))
+            if flag: print printers.print_from_snapshot(snapshot)
+            if 'choices' in snapshot:
+                controller = snapshot[snapshot['choices'][0]]['controller']
+            else:
+                controller = 'human'
+        else:
+            print '\n+++++\n'+controller+'\n++++++\n'
+            raise Exception # Bad Robot Type
+    print "CONTROLLER: ", controller
+    return snapshot_list
+   ###################  END ROBOT INTERFACE PROTOCOL  ##################
 
   ################### BEGIN ROBOT PARTS #################
 
