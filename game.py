@@ -5,7 +5,7 @@ from robots import robot_lookup_table
 
   ##################  START SNAPSHOT GEN  ###############
 ######################## START GAME ASSEMBLY ############################
-def assemble_game(player_list=['human']*5, game_type=0, game_id=0 ):
+def assemble_game(fac1_list=['human','human'], fac2_list=[], game_id=0 ):
     #########  START ARGUMENT SCRUBBING  #########
     game_id = str(game_id)
     if game_id[0] == 'g':
@@ -15,15 +15,30 @@ def assemble_game(player_list=['human']*5, game_type=0, game_id=0 ):
     except:
         game_id = 0
 
-    try:
-        game_type = int(game_type)
-    except:
-        game_type = 0
-    for player in player_list[:]:
+    for player in fac1_list[:]:
         if player not in robot_lookup_table:
-            player_list.remove(player)
-    while len(player_list) < 5:
-        player_list.append('human')
+            fac1_list.remove(player)
+    for player in fac2_list[:]:
+        if player not in robot_lookup_table:
+            fac2_list.remove(player)
+    if not fac1_list and not fac2_list:
+        fac1_list,fac2_list = ['human'], ['human']
+    elif not fac1_list:
+        fac1_list = ['human']
+    
+    if len(fac1_list) == 1 and len(fac2_list) == 1:
+        game_type = 0
+    elif len(fac1_list) == 2 and len(fac2_list) == 2:
+        game_type = 1
+    elif len(fac1_list) == 2 and len(fac2_list) == 1:
+        game_type = 4
+    elif len(fac1_list) == 3 and len(fac2_list) == 1:
+        game_type = 5
+    elif len(fac1_list) == 4 and len(fac2_list) == 1:
+        game_type = 6
+    else:
+        raise Exception # Bad faction lists
+
     #########  END ARGUMENT SCRUBBING  #########
     snapshot = {'game':(game_type, game_id)}
     # Game log
@@ -37,6 +52,7 @@ def assemble_game(player_list=['human']*5, game_type=0, game_id=0 ):
         'Four Vs DRAGON' ]
     game_log = ['Game Created: '+ logstrings[game_type]]
     snapshot['log'] = game_log
+    snapshot['imp'] = []
 
     # How many players
     if game_type in [0,2]: num_players = 2
@@ -53,9 +69,16 @@ def assemble_game(player_list=['human']*5, game_type=0, game_id=0 ):
     else: powers = 1
 
     # Okay let's create player dictionaries
+    if not fac2_list:
+        while len(fac1_list) < num_players:
+            fac1_list.append('human')
+        random.shuffle(fac1_list)
+        fac1_list, fac2_list = fac1_list[:fac1_size], fac1_list[fac1_size:]
     players = []
-    for i in range(num_players):
-        players.append({'controller':player_list[i]})
+    for player in fac1_list:
+        players.append({'controller':player, 'fac':0})
+    for player in fac2_list:
+        players.append({'controller':player, 'fac':1})
     # vote on names
     name_vote(players)
     # vote on colors
@@ -70,26 +93,29 @@ def assemble_game(player_list=['human']*5, game_type=0, game_id=0 ):
         players[i]['id_num'] = rand_num
         
     # assign l/r faction (also dragon setting)
-    random.shuffle(players)
     snapshot['leftfaction'] = {'name':'templeft', 'score':0, 'players':[]}
     snapshot['rightfaction'] = {'name':'tempright', 'score':0, 'players':[]}
-    for player in players[:fac1_size]:
-        snapshot['leftfaction']['players'].append(player['name'])
-        player['dragon']=0
-    for player in players[fac1_size:]:
-        snapshot['rightfaction']['players'].append(player['name'])
-        if dragon: 
-            player['dragon']=1
-            player['color'] = 'black'
-        else: player['dragon']=0
+    for player in players:
+        if player['fac']:
+            snapshot['rightfaction']['players'].append(player['name'])
+        else:
+            snapshot['leftfaction']['players'].append(player['name'])
+        del player['fac']
     # put player dictionaries in the snapshot
     for player in players:
+        name = player['name']
+        if name in snapshot['leftfaction']['players']:
+            player['dragon']=0
+        elif dragon:
+            player['dragon']=1
+            player['color'] = 'black'
+        else:
+            player['dragon']=0
         player['num_cards'] = 0
         player['health'] = 0
         player['winded'] = 0
         player['cards'] = []
         player['spot'] = None
-        snapshot['imp'] = []
         snapshot[player['name']] = player
         del player['name']
 
@@ -169,7 +195,6 @@ def faction_name_vote(snapshot):
     for faction in ['leftfaction', 'rightfaction']:
         players = snapshot[faction]['players']
         for player in players:
-
             robot = robot_lookup_table[snapshot[player]['controller']]()
             suggestion = getattr(robot, 'faction', '')
             if suggestion:  # can leave blank if they don't care about faction
