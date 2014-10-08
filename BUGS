@@ -1,6 +1,7 @@
-RULES: Last-hit rules, pool cards?
 
 ---------------------------------------------------------------------------
+FIXED: Infinite loop in faction name voting if sides have duplicates one name.
+FIXED: Last-hit rules, Dragon Rules (sans powers), Interpose Rules
 FIXED: Deck doesn't recycle on runout for large games
 FIXED: Games get confused about their game_id if you move their pkl files
 FIXED: Double snapshot for player's turn

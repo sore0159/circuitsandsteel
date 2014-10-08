@@ -220,7 +220,7 @@ def faction_name_vote(snapshot):
         else:
             snapshot['leftfaction']['name']= defaults[0]
     # if both sides care:
-    elif name_suggestions['l'] == name_suggestions['r'] and len(set(name_suggestions['l'])) == 1:  # but they both only want the same one name
+    elif set(name_suggestions['l']) == set(name_suggestions['r']) and len(set(name_suggestions['l'])) == 1:  # but they both only want the same one name
         if name_suggestions['l'][0] == defaults[0]:
             defaults = [name_suggestions['l'][0], defaults[1]]
         else:
@@ -478,13 +478,13 @@ def suffering_choices(snapshot):
         if attack['can_cry']:
             can_cry = 0
             if actor in snapshot['leftfaction']['players']: 
-                check = range(max(1, my_spot-5),my_spot+1)
+                check = range(max(1, my_spot-5),my_spot)
                 allies = snapshot['leftfaction']['players']
             else: 
-                check = range(my_spot, min(my_spot + 6, 19))
+                check = range(my_spot+1, min(my_spot + 6, 19))
                 allies = snapshot['rightfaction']['players']
             for player in allies:
-                if player != actor and snapshot[player]['spot'] and snapshot[player]['spot'] in check:
+                if player != actor and snapshot[player]['spot'] and snapshot[player]['spot'] in check and not snapshot[player]['winded']:
                     can_cry = 1
                     break
             if can_cry:
@@ -521,9 +521,16 @@ def refill_hand(snapshot, player):
         elif to_draw > len(deck):
             to_draw = len(deck)
             hand += deck
-            snapshot['deck'] = (snapshot['grave'], 0)
+            dragon_info = snapshot[snapshot['rightfaction']['players'][0]]
+            dragon_hand = dragon_info['cards']
+            dragon_card_num = len(dragon_hand)
+            snapshot['deck'] = (snapshot['grave']+dragon_hand, 0)
+            dragon_info['cards'] = []
             snapshot['grave'] = []
+            deck = snapshot['deck'][0]
             random.shuffle(deck)
+            for i in range(dragon_card_num):
+                dragon_info['cards'].append(deck.pop())
         for i in range(to_draw):
             hand.append(deck.pop())
         snapshot[player]['num_cards'] = len(hand)
@@ -541,7 +548,9 @@ def end_turn(snapshot):
         tic = 1
         refresh(snapshot, cur_player)
         #who's next?
-        if cur_player == turn_order[-1]:
+        if 'rampage' in snapshot[cur_player]:  # Dragon goes on a rampage!
+            del snapshot[cur_player]['rampage']
+        elif cur_player == turn_order[-1]:
             cur_player = turn_order[0]
         else:
             index = turn_order.index(cur_player)
@@ -622,54 +631,45 @@ def conclude_game(snapshot):
 
 def timeout(snapshot):
     snapshot['log'].append('The match has timed out!')
-    # last hits
-    hit_dict = {'l':{}, 'r':{}}
-    for faction in ['leftfaction', 'rightfaction']:
-        for player in snapshot[faction]['players']:
-            use_dict = hit_dict[faction[0]]
-            spot = snapshot[player]['spot']
-            if spot:
-                if spot not in use_dict: use_dict[spot] = {'cards':[],'players':[]}
-                use_dict[spot]['cards'] += snapshot[player]['cards']
-                use_dict[spot]['players'].append(player)
-    for l in hit_dict['l']:
-        for r in hit_dict['r']:
-            dist = r - l
-            l_spot, r_spot = hit_dict['l'][l], hit_dict['r'][r]
-            l_count = l_spot['cards'].count(dist)
-            r_count = r_spot['cards'].count(dist)
-            if l_count > r_count: 
-                log_str = ''
-                for player in r_spot['players']:
-                    snapshot[player]['health'] -= 1
-                    if snapshot[player]['health'] < 1:
-                        player_die(snapshot, player)
-                    log_str += player+', '
-                log_str = log_str[:-2]
-                snapshot['log'].append('Spot %s last-hits %s at spot %s' %(l, log_str,r))
-            elif r_count > l_count:
-                log_str = ''
-                for player in l_spot['players']:
-                    snapshot[player]['health'] -= 1
-                    if snapshot[player]['health'] < 1:
-                        player_die(snapshot, player)
-                    log_str += player+', '
-                log_str = log_str[:-2]
-                snapshot['log'].append('Spot %s last-hits %s at spot %s' %(r, log_str,l))
+    # real last hits
+    last_hits = set()
+    for l_player in snapshot['leftfaction']['players']:
+        for r_player in snapshot['rightfaction']['players']:
+            l_spot = snapshot[l_player]['spot']
+            r_spot = snapshot[r_player]['spot']
+            if l_spot and r_spot:
+                dist = abs(l_spot - r_spot)
+                r_cards = snapshot[r_player]['cards']
+                l_cards = snapshot[l_player]['cards']
+                r_count = r_cards.count(dist)
+                l_count = l_cards.count(dist)
+                if r_count > l_count:
+                    last_hits.add(l_player)
+                    snapshot[l_player]['health'] -= 1
+                    snapshot['log'].append('%s last-hits %s!' %(r_player, l_player))
+                elif l_count > r_count:
+                    last_hits.add(r_player)
+                    snapshot[r_player]['health'] -= 1
+                    snapshot['log'].append('%s last-hits %s!' %(l_player, r_player))
+    for player in last_hits:
+        if snapshot[player]['health'] < 1:
+            player_die(snapshot, player)
     # both sides still up?
+    game_type = snapshot['game'][0]
+    if game_type in [4,5,6]: dragon_game = 1
+    else: dragon_game = 0
     rival = {'l':'r', 'r':'l'}
     match_winner = 0
+    alive = {'r':0, 'l':0}
     for faction in 'leftfaction', 'rightfaction':
-        alive = 0
         for player in snapshot[faction]['players']:
-            alive += snapshot[player]['health']
-        if alive < 1:
-            if match_winner:
-               match_winner = 't'  # Double KO!  (Check rules on this)
-            else:
-                match_winner = rival[faction[0]]
+            if snapshot[player]['health'] > 0: alive[faction[0]] += 1
+    if not alive['r'] and not alive['l']:
+        match_winner = 't'  # Double KO!
+    elif alive['l']>alive['r'] and not dragon_game: match_winner = 'l'
+    elif alive['r']>alive['l'] and not dragon_game: match_winner = 'r'
+    else:
     # who's the farthest
-    if not match_winner:
         snapshot['log'].append('The match is decided by distance!')
         l_spots = []
         for player in snapshot['leftfaction']['players']:
@@ -899,16 +899,20 @@ def take_hit(snapshot):
     if snapshot[actor]['health'] < 1:
         log_str = actor+' is out of the match!'
         player_die(snapshot, actor)
-
+        snapshot['log'].append(log_str)
+        if snapshot['game'][0] in [4,5,6] and actor in snapshot['leftfaction']['players']:
+            dragon_player = snapshot['rightfaction']['players'][0]
+            snapshot[dragon_player]['rampage'] = 1
+            snapshot['log'].append(dragon_player+' goes into a rampage after scoring a hit and gets an extra turn!')
     else:
         plural_string = ''
         if snapshot[actor]['health'] > 1: plural_string = 's'
         log_str = actor+' is too tough to be beaten so easily!  He has %d hit%s left to go!' % (snapshot[actor]['health'], plural_string)
+        snapshot['log'].append(log_str)
     for suffering in snapshot['imp']:
         if not suffering['crier'] and actor in suffering['victims']:
             snapshot['imp'].remove(suffering)
             break
-    snapshot['log'].append(log_str)
 
 
 def cry_for_help(snapshot, val_needed, amnt_needed):
@@ -927,15 +931,15 @@ def cry_for_help(snapshot, val_needed, amnt_needed):
     log_str = ''
     if en_fac[0] == 'r':
         allies = snapshot['leftfaction']['players']
-        check = range(1, my_spot+1)
+        check = range(1, my_spot)
         check.reverse()
     else:
         allies = snapshot['rightfaction']['players']
-        check = range(my_spot, 19)
+        check = range(my_spot+1, 19)
     cry_targets = []
-    for dist in check[:(min(6, len(check)))]:
+    for dist in check[:(min(5, len(check)))]:
         for player in allies:
-            if snapshot[player]['spot'] == dist and player != actor:
+            if snapshot[player]['spot'] == dist and player != actor and not snapshot[player]['winded']:
                     cry_targets.append(player)  # closest to farthest
                     log_str += player+', '
     log_str = log_str[:-2]

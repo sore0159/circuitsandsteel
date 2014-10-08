@@ -1,4 +1,14 @@
-En Garde and Flash Duel's rules can be found online.
+En Garde and Flash Duel's rules can be found online.  I'll put more here later.
+
+Currents ASCII Legend:
+ @/    Nomal characters    \@
+ @     Winded characters    @
+ !/    Under attack        \!
+ @/?   Asked for help      \@?
+ XX    Dark spaces         XX
+ ^^    Light spaces        ^^
+ f3    Forward/Backward    b4
+ 04    Distance to enemy   12
 
 Options:
     "Action" Options: ['a', 's', 'b', 'f', 'd']
@@ -17,12 +27,12 @@ Defense: ['p', 'r', 'c', 't']
     Defense options are available when under attack.
     p : Parry the attack or dashing strike, discarding cards equal to the strike.
     rX : Retreat away X spaces from an enemy dashing strike, causing you to be winded an unable to take actions on your next turn.
-    cX[X...] : Call for aid from a teammate, requesting cards X[X...]
+    cX[X...] : Call for aid from any available teammate, requesting cards X[X...]
     t : Take the hit, removing yourself from the match.
 
 Response: ['i', 'x']
     Response options are available when a teammate calls for aid.
-    iXY[Y...] : Intercede, dashing X forward (if X is 0 no card is used for this) and defending your ally with your Y[Y...] cards.
+    iXY[Y...] : Interpose, dashing X forward (X must me 1-5) and defending your ally with your Y[Y...] cards.  Cannot interpose while winded.
     x : Deny your teammate's call for aid.
 
 

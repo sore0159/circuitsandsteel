@@ -17,44 +17,56 @@ fac1 = []
 fac2 = []
 game_run = 1
 try:
-    if argv[1] == 'robots':
-        game_id = 'g'+str(random.randint(1000,9999))
-        robot = "ON"
-        fac1 = robots.random_robots(2)
-        fac2 = robots.random_robots(2)
-        argv = ['1']
-    elif argv[1] == 'create':
-        game_id = argv[2]
-        if game_id[0] != 'g' or len(game_id) < 2 or not game_id[0:].isdigit():
-            game_id = 'g'+str(random.randint(100,999))
-            print "Game created as ID#", game_id
-        i = 3
-        while argv[i] != 'vs' and i < len(argv):
-            fac1.append(argv[i])
-            i += 1
+    test = argv[1]
+except:
+    test = ''
+if test == 'robots':
+    robot = 'ON'
+    try:
+        f1, f2 = int(argv[2]), int(argv[3])
+    except:
+        f1, f2 = 2,2
+    if f2 > 2: f2 = 2
+    elif f2 < 1: f2 = 1
+    if f2 == 1:
+        if f1 > 4: f1 = 4
+        elif f1 < 1: f1 = 1
+    else:
+        f1 = 2
+    game_id = 'g'+str(random.randint(100,999))
+    print "Game created as ID#", game_id
+    robot = "ON"
+    robot_list = robots.random_robots(f1+f2)
+    fac1 = robot_list[:f1]
+    fac2 = robot_list[f1:]
+    print fac1, fac2
+    argv = ['1']
+elif test == 'create':
+    game_id = argv[2]
+    if game_id[0] != 'g' or len(game_id) < 2 or not game_id[0:].isdigit():
+        game_id = 'g'+str(random.randint(100,999))
+        print "Game created as ID#", game_id
+    i = 3
+    while argv[i] != 'vs' and i < len(argv):
+        fac1.append(argv[i])
         i += 1
-        while i < len(argv):
-            fac2.append(argv[i])
-            i += 1
-    elif argv[1] == 'list':
-        count = 0
-        print ' '*2,
-        for robot in robots.robot_lookup_table:
-            print robot,
-            if count > 1:
-                count = 0
-                print '\n'+' '*2,
-            else:
-                print ' '*(20-len(robot)),
-                count += 1
-        game_run = 0
-except:
-    pass
-try:
-    test = argv[1] 
-except:
-    test = 'safe'
-if test not in ['robots', 'create', 'list']:
+    i += 1
+    while i < len(argv):
+        fac2.append(argv[i])
+        i += 1
+elif test == 'list':
+    count = 0
+    print ' '*2,
+    for robot in robots.robot_lookup_table:
+        print robot,
+        if count > 1:
+            count = 0
+            print '\n'+' '*2,
+        else:
+            print ' '*(20-len(robot)),
+            count += 1
+    game_run = 0
+else:
     for arg in argv[1:]:
         if arg[0] == 'g':
             if game_id:

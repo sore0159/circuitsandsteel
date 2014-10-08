@@ -22,29 +22,26 @@
      
 
 ===================  CIRCUITS AND STEEL  ==================
-Python implimentation of the board game Flash Duel/En Garde
+Python2.7 implimentation of the board game Flash Duel/En Garde
 Usage:
-python run.py [gNUM[pNUM]] [CHOICE]
-python run.py create gNUM [robotname, ...] [vs] [robotname, ...]
+python run.py robots [NUM NUM]
+python run.py create [robotname, ...] [vs] [robotname, ...]
 python run.py list
+python run.py [gNUM[pNUM]] [CHOICE]
 
-    Optional gNUM argument creates/loads a game of id NUM; without a game ID 0 is created/loaded.  g10 in particular will create a 1v1 game (at present).
-
-    Optional argument extension pNUM can follow a gNUM arg with no space, and will view the selected game from the veiw of the player with id NUM: if no such player exists a public veiw will be shown.  At present this doesn't interfere with making choices even if it's not the turn of your veiwpoint.
-
-    Optional CHOICE argument will attempt to have the current player make the selected choice.  No error for an invalid choice at present, just nothing happens.  CHOICE is the exact string presented in the option list.  See GAMERULES for option descriptions.
-
-Example:
-python run.py g10p12 d522
-
-    Leading with the 'create' arg will create a game with the given gameid; if the gameid given is not in proper form a random game_id will be used.  If any robot names follow, they will be used as the players for the game.  If a 'vs' tag exists then the robots will be separated into the given teams.  Possible game types are 1v1 2v2 2v1 3v1 and 4v1.
-    Any malformed names will be dropped: 'human' will be used to fill in any lists that end up to short: python run.py create g44 Roooomba vs LittleBobby will create a human vs LittleBobby game, for example.
+    Leading with the 'robots' arg will create a game with a random gameid and random robots.  If two numbers follow the game will attempt to make a game with those sized factions, defauting to 2v2.  The robots will then fight, with each decision point printed out and a data/gNUM_archive.pkl file created for the game.
+    Leading with the 'create' arg will create a game with a random gameid.  If any robot names follow, they will be used as the players for the game.  If a 'vs' tag exists then the robots will be separated into the given teams.  Possible game types are 1v1 2v2 2v1 3v1 and 4v1.
+    Any malformed names will be dropped: 'human' will be used to fill in any lists that end up to short.
 
 Examples:
-python run.py create r human vs LittleBobby
-python run.py create g33 human Roomba vs LittleBobby
+python run.py create human vs LittleBobby
+python run.py create human Roomba vs LittleBobby
 
-    Using the 'list' arg will list all available robot names.  LittleBobby is really the only robot focused on the game at the moment.  All the others will at least not pick 'dumb' options that do nothing or throw the game (except for BadRobot.  He's terrible).
+    Using the 'list' arg will list all available robot names.  LittleBobby is really the only robot focused on the game at the moment.  All the others will at least not pick 'dumb' options that do nothing or throw the game (except for BadRobot.  He's terrible). human as a robot name will query user for the player's decisions.
+    Finally, without these keywords the game will check for a game ID arg, defaulting to 0 if none is found.  If one is found it will check for a player ID, if found it will present the game from that player's veiw.  Lastly it will check for an option input to pass to the game if it is waiting for a human decision.
+Examples:
+python run.py g10p12 d522
+python run.py g302
 -------------------------------------------------------------------------
 pklprinter will view the archive files created by playing the game.
 Usage:
@@ -54,41 +51,35 @@ pklprinter will let you browse through the snapshots archived in the selected pk
 
 Finally you may (i)solate a particular snapshot into its own file, isolate.pkl, which is created/overwritten in the working directory.  If it is a master snapshot (not a limited player view), you can rename isolate.pkl to gNUM_archive.pkl and put it in the data directory to make it available for play starting at that point.
 
---------------------------------------------------------------------------
-Split across several files for readability/editability, not for any functional reason.
-This is a pretty amateur project, you may notice that.  Several very useful functions written halfway through means something works one way at one point and another way at other points!  Exciting.
+Currents ASCII Legend:
+ @/    Nomal characters    \@
+ @     Winded characters    @
+ !/    Under attack        \!
+ @/?   Asked for help      \@?
+ XX    Dark spaces         XX
+ ^^    Light spaces        ^^
+ f3    Forward/Backward    b4
+ 04    Distance to enemy   12
 
-1v1 and 2v2 basically working (No Powers)
+--------------------------------------------------------------------------
+Split across several files for readability/editability, not for any functional reason.  This is a pretty amateur project, you may notice that.
+
+1v1, 2v2, 2,3,4 vs 1 (Simple Dragon) basically working: No Powers for anyone at present.
 First AI opponent, Little Bobby Tables, is operational!
 More AI opponents working, but not really up to speed.
 More robust AI to come
 Web interface to come
-Dragons and Powers much farther off
+Powers much farther off
 
+Stay tuned for......
 
-Dragon Teaser:
-     ================  CIRCUITS AND STEEL  ================
-     The Future                                  Old Timers
-     0                     ==VERSUS==                     0
-                                   !!!                     
-                                   /V\  __WW__  __  __WW__ 
-                                @/ > <\/  \/  \/  \/  \/  \
-           @/    @/             @/ \_/__/\__/\__/\__/\__/\_
-     XX XX ^^ ^^ XX XX ^^ ^^ XX XX ^^ ^^ XX XX ^^ ^^ XX XX 
-        f9 08 f7 06 f5 f4 f3 f2 01    b1 b2 b3 b4 b5 b6 b7 
-     ------------------------------------------------------
-     Discard Pile: 1x6 2x6 3x5 4x6 5x2
-     Turn Order: SO, BU, >LB<, RO, RO
-                          19 Cards Left (1 Cycle Remaining)
-     SO                                        5 5 4 1 1:RO
-     BU                                                    
-     RO:2                                                  
-     LB                                                    
-f5:Rockem moved to a dark square numbered 10
-f4:Roomba moved to a light square numbered 11
-f4:Sockem moved to a dark square numbered 5
-b1:Bending Unit 22 moved to a light square numbered 3
-a1:Little Bobby Tables attacked a light square numbered 11 with 1 cards
-Roomba's Options:
-     ['p', 't']
+   /  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \_
+   \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  
+   /  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \_
+   ==============MOBILE_FRAME_ZERO================
+   /  \__/  \__/  \__/===HEX===__/  \__/  \__/  \_
+   \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  
+   /  \__/  \__/  \__/  \__/  \__/  \__/  \__/  \_
+   \__/  \__/  \__/  \__/  \__/  \__/  \__/  \__/  
+
 
