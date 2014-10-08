@@ -1,5 +1,6 @@
 
 ---------------------------------------------------------------------------
+FIXED: Timeout last-hits incorrectly applied for dragon games.
 FIXED: Infinite loop in faction name voting if sides have duplicates one name.
 FIXED: Last-hit rules, Dragon Rules (sans powers), Interpose Rules
 FIXED: Deck doesn't recycle on runout for large games

@@ -34,19 +34,14 @@ if test == 'robots':
     else:
         f1 = 2
     game_id = 'g'+str(random.randint(100,999))
-    print "Game created as ID#", game_id
     robot = "ON"
     robot_list = robots.random_robots(f1+f2)
     fac1 = robot_list[:f1]
     fac2 = robot_list[f1:]
-    print fac1, fac2
     argv = ['1']
 elif test == 'create':
-    game_id = argv[2]
-    if game_id[0] != 'g' or len(game_id) < 2 or not game_id[0:].isdigit():
-        game_id = 'g'+str(random.randint(100,999))
-        print "Game created as ID#", game_id
-    i = 3
+    game_id = 'g'+str(random.randint(100,999))
+    i = 2
     while argv[i] != 'vs' and i < len(argv):
         fac1.append(argv[i])
         i += 1
@@ -119,6 +114,9 @@ if game_run:
         snap = player_snap_from_master(snap, player_id)
 
     print print_from_snapshot(snap),
+if test in ['robots', 'create']: 
+    print "+"*70
+    print "Game stored as ID#", game_id
         ############## IT HAS ENDED #################
 
 

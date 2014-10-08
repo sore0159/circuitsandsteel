@@ -667,7 +667,8 @@ def timeout(snapshot):
     if not alive['r'] and not alive['l']:
         match_winner = 't'  # Double KO!
     elif alive['l']>alive['r'] and not dragon_game: match_winner = 'l'
-    elif alive['r']>alive['l'] and not dragon_game: match_winner = 'r'
+    elif dragon_game and not alive['r']: match_winner = 'l'
+    elif alive['r']>alive['l']: match_winner = 'r'
     else:
     # who's the farthest
         snapshot['log'].append('The match is decided by distance!')
