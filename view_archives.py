@@ -2,7 +2,7 @@
 
 import cPickle as pickle
 import pprint
-from printers import print_from_snapshot
+from interfaces import print_from_snapshot
 from sys import argv
 
 target_file = argv[1]

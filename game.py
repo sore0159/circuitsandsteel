@@ -1,4 +1,3 @@
-import copy
 import random
 from robots import robot_lookup_table
 
@@ -25,6 +24,10 @@ def assemble_game(fac1_list=['human','human'], fac2_list=[], game_id=0 ):
         fac1_list,fac2_list = ['human'], ['human']
     elif not fac1_list:
         fac1_list = ['human']
+    elif not fac2_list and len(fac1_list) > 1:
+        fac2_list.append(fac1_list.pop())
+    elif not fac2_list:
+        fac2_list = ['human']
     
     if len(fac1_list) == 1 and len(fac2_list) == 1:
         game_type = 0
@@ -983,37 +986,5 @@ def interpose(snapshot, move_dist, donate_val, donate_amnt):
     snapshot['log'].append('i'+str(abs(move_dist))+str(donate_val)*donate_amnt+':'+actor+' moved to spot %d and interposed himself before %s with %d cards!' %(final_spot, crier, donate_amnt))
 
  #################### END ACTION FUNCTIONS ####################
-
-#################  START LOGGING/DIPLAY FUNCTIONALITY  ####################
-def player_snap_from_master(master_snap, player_name=''):
-    if player_name.isdigit():
-        name_dict = names_from_ids(master_snap)
-        p_id = int(player_name)
-        if p_id in name_dict:
-            player_name = name_dict[p_id]
-        else:
-            player_name = 'p0'
-    snapshot = copy.deepcopy(master_snap)  # hope this works
-    if 'choices' in snapshot and player_name != snapshot['choices'][0]:
-        del snapshot['choices']
-    for faction in ['leftfaction','rightfaction']:
-        for player in snapshot[faction]['players']:
-            player_info = snapshot[player]
-            if player == player_name:
-                snapshot['mycards'] = (player, player_info['cards'])
-            else:
-                del snapshot[player]['id_num']
-            del player_info['cards']
-    return snapshot
-    
-
-def names_from_ids(mastersnapshot):
-    id_dict = {}
-    for player in full_player_list(mastersnapshot):
-        id_dict[mastersnapshot[player]['id_num']] = player
-    return id_dict
-
-
-#################  END LOGGING/DIPLAY FUNCTIONALITY  ####################
 
 

@@ -25,31 +25,33 @@
 Python2.7 implimentation of the board game Flash Duel/En Garde
 Usage:
 python run.py robots [NUM NUM]
-python run.py create [robotname, ...] [vs] [robotname, ...]
+python run.py create [gNUM] [robotname, ...] [vs] [robotname, ...]
 python run.py list
 python run.py [gNUM[pNUM]] [CHOICE]
 
     Leading with the 'robots' arg will create a game with a random gameid and random robots.  If two numbers follow the game will attempt to make a game with those sized factions, defauting to 2v2.  The robots will then fight, with each decision point printed out and a data/gNUM_archive.pkl file created for the game.
-    Leading with the 'create' arg will create a game with a random gameid.  If any robot names follow, they will be used as the players for the game.  If a 'vs' tag exists then the robots will be separated into the given teams.  Possible game types are 1v1 2v2 2v1 3v1 and 4v1.
+    Leading with the 'create' arg will create a game either the following game id or a random gameid if none is specified.  If any robot names follow, they will be used as the players for the game.  If a 'vs' tag exists then the robots will be separated into the given teams.  Possible game types are 1v1 2v2 2v1 3v1 and 4v1.
     Any malformed names will be dropped: 'human' will be used to fill in any lists that end up to short.
 
 Examples:
-python run.py create human vs LittleBobby
-python run.py create human Roomba vs LittleBobby
+python run.py create human LittleBobby
+python run.py create g505 BadRobot Roomba vs LittleBobby
 
     Using the 'list' arg will list all available robot names.  LittleBobby is really the only robot focused on the game at the moment.  All the others will at least not pick 'dumb' options that do nothing or throw the game (except for BadRobot.  He's terrible). human as a robot name will query user for the player's decisions.
-    Finally, without these keywords the game will check for a game ID arg, defaulting to 0 if none is found.  If one is found it will check for a player ID, if found it will present the game from that player's veiw.  Lastly it will check for an option input to pass to the game if it is waiting for a human decision.
+    Finally, without these keywords the game will check for a game ID arg, defaulting to 0 if none is found.  If one is found it will check for a player ID, if found it will present the game from that player's veiw.  If the player ID is 'pm' then the master veiw will be displayed.  Lastly it will check for an option input to pass to the game if it is waiting for a human decision.
 Examples:
 python run.py g10p12 d522
 python run.py g302
+python run.py g23pm a33
+python run.py g58p3
 -------------------------------------------------------------------------
-pklprinter will view the archive files created by playing the game.
+view_archives.py will view the archive files created by playing the game.
 Usage:
-./pklprinter data/PKLFILE.pkl
+./view_archives.py data/PKLFILE.pkl
 
-pklprinter will let you browse through the snapshots archived in the selected pklfile, starting with the last.  Runtime options include navigating through the snapshots, changing the view from an (a)scii printout of the game to the (d)ata represented openly.  
+view_archives.py will let you browse through the snapshots archived in the selected pklfile, starting with the last.  Runtime options include navigating through the snapshots, changing the view from an (a)scii printout of the game to the (d)ata represented openly.  
 
-Finally you may (i)solate a particular snapshot into its own file, isolate.pkl, which is created/overwritten in the working directory.  If it is a master snapshot (not a limited player view), you can rename isolate.pkl to gNUM_archive.pkl and put it in the data directory to make it available for play starting at that point.
+Finally you may (i)solate a particular snapshot into its own file, isolate.pkl, which is created/overwritten in the working directory.  You can rename isolate.pkl to gNUM_archive.pkl and put it in the data directory to make it available for play starting at that point.
 
 Currents ASCII Legend:
  @/    Nomal characters    \@
@@ -64,7 +66,8 @@ Currents ASCII Legend:
 --------------------------------------------------------------------------
 Split across several files for readability/editability, not for any functional reason.  This is a pretty amateur project, you may notice that.
 
-1v1, 2v2, 2,3,4 vs 1 (Simple Dragon) basically working: No Powers for anyone at present.
+1v1, 2v2, 2,3,4 vs 1 (Simple Dragon) working. 
+No Powers for anyone at present.
 First AI opponent, Little Bobby Tables, is operational!
 More AI opponents working, but not really up to speed.
 More robust AI to come

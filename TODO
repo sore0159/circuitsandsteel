@@ -1,28 +1,23 @@
-Command Line Options
-	allow command line AI selection
 Impliment AI
 	Design filter structure, file reading
-Bugtesting
 	AI should help with bugtesting
 Integrate game on web
-	web.py? flask? Something else?
-	probably need mysql or at least shelve integration for this
-        check game_id on creation vs games in progress
+	web.py? flask? Django?
 Temporal Display
 	Some way to see a replay of the progress of the game from gamelog or snapshots
 	just extended logstring printing for now I guess
 Stats Tracking
 	Track filter competence, robot win/loss ratios
-Impliment Dragon
-	Ignore Dragon Powers for now
-	Dragon Extra Turn on Kill
 Web Art:
 	Block/Hit pictures, Win/Lose pictures
 Impliment Powers
+        Dragon Powers
 	hooooo boy will this be a job
-	Might necessitate (no spellchecker on vim!  look into that) total data structure rewrite
 
   #############  DONE  #############
+        Most Bugtesting done
+	Dragon Extra Turn on Kill
+	allow command line AI selection
 	consolidated file logging into one spot: good for performance, bad for debugging
 	removing Game class and affiliated objects
 	impliment action functions
