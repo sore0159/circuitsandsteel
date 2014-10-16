@@ -614,7 +614,8 @@ def conclude_match(snapshot):
 
 def game_over(snapshot):
     max_score = max(snapshot['leftfaction']['score'], snapshot['rightfaction']['score'] )
-    if max_score > 2:
+    game_type = snapshot['game'][0]
+    if max_score > 2 or game_type in [4,5,6] and max_score >0:
         return 1
     else:
         return 0
